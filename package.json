@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "concurrently -k -n VITE,ELECTRON \"vite\" \"node scripts/electron-dev.js\"",
     "build": "tsc -p tsconfig.electron.json && vite build && electron-builder",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "build": {
     "appId": "com.claude.claude-lens",
@@ -42,6 +44,7 @@
     "electron-builder": "^26.8.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
+    "vitest": "^4.0.18",
     "wait-on": "^9.0.4"
   },
   "dependencies": {

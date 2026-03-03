@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp
+  if (diff <= 0) return 'just now'
   const seconds = Math.floor(diff / 1000)
   if (seconds < 60) return `${seconds}s ago`
   const minutes = Math.floor(seconds / 60)
@@ -26,10 +27,11 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; d
 }
 
 export function getTeamStats(tasks: { status: TaskStatus }[]) {
-  const total = tasks.length
-  const completed = tasks.filter(t => t.status === 'completed').length
-  const inProgress = tasks.filter(t => t.status === 'in_progress').length
-  const pending = tasks.filter(t => t.status === 'pending').length
+  const active = tasks.filter(t => t.status !== 'deleted')
+  const total = active.length
+  const completed = active.filter(t => t.status === 'completed').length
+  const inProgress = active.filter(t => t.status === 'in_progress').length
+  const pending = active.filter(t => t.status === 'pending').length
   const progress = total ? Math.round((completed / total) * 100) : 0
   return { total, completed, inProgress, pending, progress }
 }
@@ -41,8 +43,10 @@ export function getAgentInitials(name: string) {
 export function shortenModel(model: string) {
   // e.g. "claude-sonnet-4-6" -> "Sonnet 4.6", "qwen3:8b" -> "Qwen3 8B"
   if (model.includes('claude')) {
-    const m = model.replace('claude-', '').replace(/-/g, ' ')
+    const m = model.replace('claude-', '').replace(/(\d)-(\d)/g, '$1.$2').replace(/-/g, ' ')
     return m.replace(/\b\w/g, c => c.toUpperCase())
   }
-  return model.replace(/[:-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  return model.replace(/[:-]/g, ' ')
+    .replace(/\b[a-zA-Z]/g, c => c.toUpperCase())
+    .replace(/(\d)([a-z])/g, (_, d, l) => d + l.toUpperCase())
 }
