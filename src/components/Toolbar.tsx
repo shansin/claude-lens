@@ -18,16 +18,16 @@ interface Props {
 
 const VIEWS: { id: ViewMode; icon: React.ElementType; label: string }[] = [
   { id: 'cards', icon: LayoutGrid, label: 'Cards' },
-  { id: 'graph', icon: GitFork,    label: 'Graph' },
-  { id: 'split', icon: Columns,    label: 'Split' },
+  { id: 'graph', icon: GitFork, label: 'Graph' },
+  { id: 'split', icon: Columns, label: 'Split' },
 ]
 
 const PRIMARY_NAV: { id: SourceMode; icon: React.ElementType; label: string }[] = [
-  { id: 'teams',         icon: Users,         label: 'Teams'         },
-  { id: 'projects',      icon: FolderCode,    label: 'Projects'      },
-  { id: 'analytics',     icon: BarChart2,     label: 'Analytics'     },
-  { id: 'content',       icon: FolderOpen,    label: 'Content'       },
-  { id: 'search',        icon: Search,        label: 'Search'        },
+  { id: 'teams', icon: Users, label: 'Teams' },
+  { id: 'projects', icon: FolderCode, label: 'Projects' },
+  { id: 'analytics', icon: BarChart2, label: 'Analytics' },
+  { id: 'content', icon: FolderOpen, label: 'Content' },
+  { id: 'search', icon: Search, label: 'Search' },
   { id: 'conversations', icon: MessageSquare, label: 'Conversations' },
 ]
 
@@ -63,7 +63,7 @@ export function Toolbar({
               <span className={cn(
                 'text-xs font-mono rounded-full px-1.5 py-px',
                 isActive ? 'bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400'
-                         : 'bg-zinc-200 dark:bg-white/10 text-zinc-500 dark:text-zinc-400'
+                  : 'bg-zinc-200 dark:bg-white/10 text-zinc-500 dark:text-zinc-400'
               )}>{teamCount}</span>
             )
           } else if (id === 'projects') {
@@ -73,7 +73,7 @@ export function Toolbar({
                 <span className={cn(
                   'text-xs font-mono rounded-full px-1.5 py-px',
                   isActive ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400'
-                           : 'bg-zinc-200 dark:bg-white/10 text-zinc-500 dark:text-zinc-400'
+                    : 'bg-zinc-200 dark:bg-white/10 text-zinc-500 dark:text-zinc-400'
                 )}>{projectCount}</span>
               )
           }

@@ -26,8 +26,8 @@ function TeamNode({ data }: NodeProps) {
     <div className="min-w-[180px] rounded-2xl border-2 border-violet-500/60 bg-gradient-to-br
                     from-violet-500/20 to-purple-600/10 backdrop-blur-sm shadow-xl shadow-violet-500/20 px-4 py-3">
       <Handle type="source" position={Position.Right} className="!bg-violet-500 !border-violet-300" />
-      <div className="font-bold text-sm text-white mb-1 truncate">{d.label}</div>
-      <div className="text-xs text-violet-300 mb-2 line-clamp-1">{d.description}</div>
+      <div data-sensitive className="font-bold text-sm text-white mb-1 truncate">{d.label}</div>
+      <div data-sensitive className="text-xs text-violet-300 mb-2 line-clamp-1">{d.description}</div>
       <div className="flex gap-2 text-xs">
         <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">
           {d.stats.completed} done
@@ -56,7 +56,7 @@ function AgentNode({ data }: NodeProps) {
           {initials}
         </div>
         <div className="min-w-0">
-          <div className="text-xs font-semibold text-white truncate">{d.name}</div>
+          <div data-sensitive className="text-xs font-semibold text-white truncate">{d.name}</div>
           {d.isLead && <div className="text-xs text-violet-400">lead</div>}
         </div>
       </div>
@@ -78,7 +78,7 @@ function TaskNode({ data }: NodeProps) {
         <span className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot} ${d.status === 'in_progress' ? 'animate-pulse' : ''}`} />
         <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
       </div>
-      <div className="text-xs text-zinc-300 line-clamp-2 leading-snug">
+      <div data-sensitive className="text-xs text-zinc-300 line-clamp-2 leading-snug">
         {d.status === 'in_progress' && d.activeForm ? d.activeForm : d.subject}
       </div>
     </div>

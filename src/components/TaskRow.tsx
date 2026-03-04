@@ -15,7 +15,7 @@ export function TaskRow({ task, compact }: Props) {
       compact ? 'px-2 py-1.5' : 'px-3 py-2.5'
     )}>
       <div className="flex-1 min-w-0">
-        <p className={cn(
+        <p data-sensitive className={cn(
           'font-medium truncate',
           compact ? 'text-xs' : 'text-sm',
           task.status === 'completed' ? 'line-through opacity-50' : 'text-zinc-800 dark:text-zinc-100'
@@ -23,12 +23,12 @@ export function TaskRow({ task, compact }: Props) {
           {task.status === 'in_progress' ? task.activeForm || task.subject : task.subject}
         </p>
         {!compact && task.description && (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
+          <p data-sensitive className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
             {task.description}
           </p>
         )}
         {task.owner && (
-          <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">
+          <p data-sensitive className="text-xs text-violet-500 dark:text-violet-400 mt-0.5">
             → {task.owner}
           </p>
         )}

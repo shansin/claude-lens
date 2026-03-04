@@ -127,7 +127,7 @@ function MessageCard({ msg }: { msg: SessionMessage }) {
       </div>
 
       {/* Content blocks */}
-      <div className="flex flex-col gap-2">
+      <div data-sensitive className="flex flex-col gap-2">
         {msg.content.map((block, i) => {
           if (block.type === 'text') {
             return (

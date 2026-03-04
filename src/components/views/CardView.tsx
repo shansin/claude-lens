@@ -67,7 +67,7 @@ export function CardView({ teams, costMap, onSelectTeam, onDelete, onArchive, on
             {/* Header */}
             <div className="px-5 pt-5 pb-3">
               <div className="flex items-start justify-between gap-2 mb-1">
-                <h3 className="font-bold text-base text-zinc-900 dark:text-white truncate leading-tight flex-1">
+                <h3 data-sensitive className="font-bold text-base text-zinc-900 dark:text-white truncate leading-tight flex-1">
                   {item.team.name}
                 </h3>
                 <div className="flex items-center gap-1 shrink-0">
@@ -86,7 +86,7 @@ export function CardView({ teams, costMap, onSelectTeam, onDelete, onArchive, on
                 </div>
               </div>
               {item.team.description && (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-snug">
+                <p data-sensitive className="text-sm text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-snug">
                   {item.team.description}
                 </p>
               )}

@@ -27,7 +27,7 @@ export function AgentPill({ member, isLead, size = 'md' }: Props) {
       </div>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className={cn(
+          <span data-sensitive className={cn(
             'font-medium truncate',
             size === 'sm' ? 'text-xs' : 'text-sm',
             'text-zinc-800 dark:text-zinc-100'

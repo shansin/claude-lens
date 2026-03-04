@@ -81,7 +81,8 @@ function readAuthStatus(): AuthStatus {
   try {
     const credPath = path.join(CLAUDE_DIR, '.credentials.json')
     if (fs.existsSync(credPath)) {
-      const cred = JSON.parse(fs.readFileSync(credPath, 'utf8'))
+      const raw = JSON.parse(fs.readFileSync(credPath, 'utf8'))
+      const cred = raw.claudeAiOauth ?? raw
       result.subscriptionType = cred.subscriptionType ?? cred.planType ?? null
       result.rateLimitTier = cred.rateLimitTier ?? cred.tier ?? null
       result.expiresAt = cred.expiresAt ?? cred.exp ?? null

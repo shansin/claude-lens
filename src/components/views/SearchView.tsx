@@ -123,13 +123,13 @@ export function SearchView({ onOpenSession }: Props = {}) {
               <div key={`${r.sessionId}-${i}`} className="px-6 py-3 hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors">
                 <div className="flex items-center gap-2 mb-1.5">
                   {/* Project badge */}
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
+                  <span data-sensitive className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
                     <FolderOpen className="w-3 h-3" />
                     {r.projectName}
                   </span>
                   {/* Team badge */}
                   {r.teamName && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">
+                    <span data-sensitive className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-200 dark:border-violet-500/20">
                       {r.teamName}
                     </span>
                   )}
@@ -156,7 +156,7 @@ export function SearchView({ onOpenSession }: Props = {}) {
                     {r.type}
                   </span>
                 </div>
-                <p className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                <p data-sensitive className="text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
                   <HighlightedSnippet text={r.snippet} query={query} />
                 </p>
               </div>

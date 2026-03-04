@@ -136,7 +136,7 @@ export function ConversationView({ initialProjectKey, initialSessionId, onCopy }
             <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-200 dark:border-white/[0.06]
                             bg-white/60 dark:bg-zinc-950/60 backdrop-blur-sm shrink-0 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0 text-sm text-zinc-600 dark:text-zinc-300 truncate">
-                <span className="font-medium truncate">{currentProject?.displayName ?? selectedProject}</span>
+                <span data-sensitive className="font-medium truncate">{currentProject?.displayName ?? selectedProject}</span>
                 <span className="text-zinc-400 shrink-0">›</span>
                 <span className="font-mono text-xs text-zinc-500 shrink-0">…{selectedSession.slice(-8)}</span>
               </div>
@@ -199,7 +199,7 @@ function ProjectRow({ project, expanded, selectedProject, selectedSession, onTog
           {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
         </span>
         <Folder className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-        <span className="truncate font-medium">{project.displayName}</span>
+        <span data-sensitive className="truncate font-medium">{project.displayName}</span>
         <span className="ml-auto shrink-0 text-zinc-400">{project.sessions.length}</span>
       </button>
       {expanded && (

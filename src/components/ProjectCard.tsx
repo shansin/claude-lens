@@ -44,10 +44,11 @@ export function ProjectCard({ project, onOpenCwd, onCopy, onSelectTeam }: Props)
             <FolderCode className="w-5 h-5 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-base text-zinc-900 dark:text-white truncate leading-tight">
+            <h3 data-sensitive className="font-bold text-base text-zinc-900 dark:text-white truncate leading-tight">
               {project.displayName}
             </h3>
             <button
+              data-sensitive
               onClick={() => onCopy(project.cwd, 'Copied path')}
               className="flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mt-0.5 group/path"
               title="Copy path"
@@ -114,6 +115,7 @@ export function ProjectCard({ project, onOpenCwd, onCopy, onSelectTeam }: Props)
           {project.linkedTeams.map(t => (
             <button
               key={t}
+              data-sensitive
               onClick={() => onSelectTeam?.(t)}
               className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full
                          bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400

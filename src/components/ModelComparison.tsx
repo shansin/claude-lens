@@ -20,13 +20,13 @@ function stripClaude(model: string): string {
 
 function formatCost(usd: number | null): string {
   if (usd === null) return '—'
-  if (usd < 0.01)   return `$${usd.toFixed(4)}`
+  if (usd < 0.01) return `$${usd.toFixed(4)}`
   return `$${usd.toFixed(2)}`
 }
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(0)}K`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
   return String(n)
 }
 
@@ -56,15 +56,15 @@ export function ModelComparison() {
 
   useEffect(() => {
     setLoading(true)
-    ;(window as any).electronAPI.getModelComparison()
-      .then((d: ModelStats[]) => setData(d ?? []))
-      .catch(console.error)
-      .finally(() => setLoading(false))
+      ; (window as any).electronAPI.getModelComparison()
+        .then((d: ModelStats[]) => setData(d ?? []))
+        .catch(console.error)
+        .finally(() => setLoading(false))
   }, [])
 
   const chartData = useMemo(() =>
     data.map(m => ({ ...m, shortName: stripClaude(m.model) })),
-  [data])
+    [data])
 
   if (loading) {
     return (
@@ -124,7 +124,7 @@ export function ModelComparison() {
                 const { x, y, width, value, index } = props
                 if (value !== null) return null
                 // Show token count if no cost
-                const tokens = chartData[index]?.totalInputTokens + chartData[index]?.totalOutputTokens ?? 0
+                const tokens = (chartData[index]?.totalInputTokens ?? 0) + (chartData[index]?.totalOutputTokens ?? 0)
                 return (
                   <text x={x + width / 2} y={y - 4} textAnchor="middle" fontSize={9} fill="#a1a1aa">
                     {formatTokens(tokens)}

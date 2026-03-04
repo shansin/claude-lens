@@ -3,23 +3,23 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import chokidar from 'chokidar'
-import { registerContentHandlers }      from './modules/content'
-import { registerSettingsHandlers }     from './modules/settings'
-import { registerAnalyticsHandlers }    from './modules/analytics'
-import { registerSystemHandlers }       from './modules/system'
-import { registerViewerHandlers }       from './modules/viewer'
-import { registerMetricsHandlers }      from './modules/metrics'
+import { registerContentHandlers } from './modules/content'
+import { registerSettingsHandlers } from './modules/settings'
+import { registerAnalyticsHandlers } from './modules/analytics'
+import { registerSystemHandlers } from './modules/system'
+import { registerViewerHandlers } from './modules/viewer'
+import { registerMetricsHandlers } from './modules/metrics'
 import { registerNotificationHandlers, checkTaskCompletions } from './modules/notifications'
 import type { TaskData } from './modules/notifications'
 
-const CLAUDE_DIR   = path.join(os.homedir(), '.claude')
-const TEAMS_DIR    = path.join(CLAUDE_DIR, 'teams')
-const TASKS_DIR    = path.join(CLAUDE_DIR, 'tasks')
+const CLAUDE_DIR = path.join(os.homedir(), '.claude')
+const TEAMS_DIR = path.join(CLAUDE_DIR, 'teams')
+const TASKS_DIR = path.join(CLAUDE_DIR, 'tasks')
 
 // Previous task snapshot for notification diffing
 let prevTaskSnapshot: TaskData[] = []
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects')
-const ARCHIVE_DIR  = path.join(CLAUDE_DIR, 'teams-archive')
+const ARCHIVE_DIR = path.join(CLAUDE_DIR, 'teams-archive')
 
 let mainWindow: BrowserWindow | null = null
 let watcher: ReturnType<typeof chokidar.watch> | null = null
@@ -34,6 +34,8 @@ function createWindow() {
     minHeight: 600,
     titleBarStyle: 'hiddenInset',
     frame: process.platform !== 'darwin',
+    autoHideMenuBar: true,
+    icon: path.join(__dirname, '../build/icon.png'),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0a0a0a' : '#f8fafc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -105,16 +107,16 @@ interface UsageRecord {
 
 // Pricing per million tokens: [input, output, cache-write, cache-read]
 const PRICING: Record<string, [number, number, number, number]> = {
-  'claude-opus-4-6':   [15,   75,    18.75, 1.5  ],
-  'claude-opus-4-5':   [15,   75,    18.75, 1.5  ],
-  'claude-sonnet-4-6': [3,    15,    3.75,  0.3  ],
-  'claude-sonnet-4-5': [3,    15,    3.75,  0.3  ],
-  'claude-sonnet-3-7': [3,    15,    3.75,  0.3  ],
-  'claude-sonnet-3-5': [3,    15,    3.75,  0.3  ],
-  'claude-haiku-4-5':  [0.8,  4,     1.0,   0.08 ],
-  'claude-haiku-3-5':  [0.8,  4,     1.0,   0.08 ],
-  'claude-3-opus':     [15,   75,    18.75, 1.5  ],
-  'claude-3-haiku':    [0.25, 1.25,  0.3,   0.03 ],
+  'claude-opus-4-6': [15, 75, 18.75, 1.5],
+  'claude-opus-4-5': [15, 75, 18.75, 1.5],
+  'claude-sonnet-4-6': [3, 15, 3.75, 0.3],
+  'claude-sonnet-4-5': [3, 15, 3.75, 0.3],
+  'claude-sonnet-3-7': [3, 15, 3.75, 0.3],
+  'claude-sonnet-3-5': [3, 15, 3.75, 0.3],
+  'claude-haiku-4-5': [0.8, 4, 1.0, 0.08],
+  'claude-haiku-3-5': [0.8, 4, 1.0, 0.08],
+  'claude-3-opus': [15, 75, 18.75, 1.5],
+  'claude-3-haiku': [0.25, 1.25, 0.3, 0.03],
 }
 
 function getPricing(model: string): [number, number, number, number] | null {
@@ -129,9 +131,9 @@ function calcCost(usage: UsageRecord, model: string): number | null {
   const M = 1_000_000
   return (
     ((usage.input_tokens ?? 0) * pIn +
-     (usage.output_tokens ?? 0) * pOut +
-     (usage.cache_creation_input_tokens ?? 0) * pCW +
-     (usage.cache_read_input_tokens ?? 0) * pCR) / M
+      (usage.output_tokens ?? 0) * pOut +
+      (usage.cache_creation_input_tokens ?? 0) * pCW +
+      (usage.cache_read_input_tokens ?? 0) * pCR) / M
   )
 }
 
@@ -147,7 +149,7 @@ interface CostEntry {
 }
 
 // teamCosts: teamName → sessionId → CostEntry (deduplicated per message)
-type RawTeamCosts  = Map<string, Map<string, CostEntry>>
+type RawTeamCosts = Map<string, Map<string, CostEntry>>
 
 interface SessionMeta {
   sessionId: string
@@ -199,12 +201,12 @@ function scanClaudeData(): ScanResult {
         let rec: Record<string, unknown>
         try { rec = JSON.parse(line) } catch { continue }
 
-        const recType   = rec.type as string | undefined
-        const cwd       = rec.cwd as string | undefined
+        const recType = rec.type as string | undefined
+        const cwd = rec.cwd as string | undefined
         const sessionId = rec.sessionId as string | undefined
-        const teamName  = rec.teamName as string | undefined
-        const tsRaw     = rec.timestamp as string | undefined
-        const ts        = tsRaw ? new Date(tsRaw).getTime() : 0
+        const teamName = rec.teamName as string | undefined
+        const tsRaw = rec.timestamp as string | undefined
+        const ts = tsRaw ? new Date(tsRaw).getTime() : 0
 
         if (!cwd || !sessionId) continue
 
@@ -236,7 +238,7 @@ function scanClaudeData(): ScanResult {
 
         // Only process assistant messages with usage
         if (recType !== 'assistant') continue
-        const msg   = rec.message as Record<string, unknown> | undefined
+        const msg = rec.message as Record<string, unknown> | undefined
         if (!msg) continue
         const usage = msg.usage as UsageRecord | undefined
         const model = msg.model as string | undefined
@@ -254,16 +256,16 @@ function scanClaudeData(): ScanResult {
         if (teamName) {
           if (!teamCosts.has(teamName)) teamCosts.set(teamName, new Map())
           const tmap = teamCosts.get(teamName)!
-          const key  = `${sessionId}:${msgId}`
+          const key = `${sessionId}:${msgId}`
           const texisting = tmap.get(key)
           if (!texisting || (usage.output_tokens ?? 0) >= (texisting.outputTokens ?? 0)) {
             tmap.set(key, {
               model,
-              inputTokens:         usage.input_tokens ?? 0,
-              outputTokens:        usage.output_tokens ?? 0,
+              inputTokens: usage.input_tokens ?? 0,
+              outputTokens: usage.output_tokens ?? 0,
               cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
-              cacheReadTokens:     usage.cache_read_input_tokens ?? 0,
-              costUSD:             calcCost(usage, model),
+              cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+              costUSD: calcCost(usage, model),
             })
           }
         }
@@ -285,7 +287,7 @@ interface SerializedCostEntry {
   costUSD: number | null
 }
 type SerializedAgentCostMap = Record<string, SerializedCostEntry>
-type SerializedCostMap      = Record<string, SerializedAgentCostMap>
+type SerializedCostMap = Record<string, SerializedAgentCostMap>
 
 function serializeCostMap(teamCosts: RawTeamCosts): SerializedCostMap {
   const result: SerializedCostMap = {}
@@ -299,10 +301,10 @@ function serializeCostMap(teamCosts: RawTeamCosts): SerializedCostMap {
         agentMap[sessionId] = { model: entry.model, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, costUSD: null }
       }
       const dest = agentMap[sessionId]
-      dest.inputTokens         += entry.inputTokens
-      dest.outputTokens        += entry.outputTokens
+      dest.inputTokens += entry.inputTokens
+      dest.outputTokens += entry.outputTokens
       dest.cacheCreationTokens += entry.cacheCreationTokens
-      dest.cacheReadTokens     += entry.cacheReadTokens
+      dest.cacheReadTokens += entry.cacheReadTokens
       if (entry.costUSD !== null) dest.costUSD = (dest.costUSD ?? 0) + entry.costUSD
       dest.model = entry.model
     }
@@ -341,8 +343,8 @@ function serializeProjects(projects: Map<string, ProjectMeta>): SerializedProjec
     let totalIn = 0, totalOut = 0, totalCache = 0, totalCost: number | null = null
 
     for (const { usage, model } of meta.msgBucket.values()) {
-      totalIn    += usage.input_tokens ?? 0
-      totalOut   += usage.output_tokens ?? 0
+      totalIn += usage.input_tokens ?? 0
+      totalOut += usage.output_tokens ?? 0
       totalCache += (usage.cache_creation_input_tokens ?? 0) + (usage.cache_read_input_tokens ?? 0)
       const c = calcCost(usage, model)
       if (c !== null) totalCost = (totalCost ?? 0) + c
@@ -355,18 +357,18 @@ function serializeProjects(projects: Map<string, ProjectMeta>): SerializedProjec
       .sort((a, b) => b.lastSeen - a.lastSeen)
 
     result.push({
-      projectKey:        meta.projectKey,
-      cwd:               meta.cwd,
-      displayName:       path.basename(meta.cwd),
+      projectKey: meta.projectKey,
+      cwd: meta.cwd,
+      displayName: path.basename(meta.cwd),
       sessions,
-      models:            [...modelSet],
-      totalInputTokens:  totalIn,
+      models: [...modelSet],
+      totalInputTokens: totalIn,
       totalOutputTokens: totalOut,
-      totalCacheTokens:  totalCache,
-      costUSD:           totalCost,
-      lastActivity:      meta.lastActivity,
-      linkedTeams:       [...meta.linkedTeams],
-      totalMessages:     meta.msgBucket.size,
+      totalCacheTokens: totalCache,
+      costUSD: totalCost,
+      lastActivity: meta.lastActivity,
+      linkedTeams: [...meta.linkedTeams],
+      totalMessages: meta.msgBucket.size,
     })
   }
 
@@ -380,7 +382,7 @@ function getScannedData() {
   if (scanCache) return scanCache
   const { teamCosts, projects } = scanClaudeData()
   scanCache = {
-    costMap:  serializeCostMap(teamCosts),
+    costMap: serializeCostMap(teamCosts),
     projects: serializeProjects(projects),
   }
   return scanCache
@@ -479,14 +481,14 @@ app.whenReady().then(() => {
   createWindow()
 
   ipcMain.handle('get-initial-data', () => readTeamData())
-  ipcMain.handle('get-theme',        () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
-  ipcMain.handle('get-claude-dir',   () => CLAUDE_DIR)
-  ipcMain.handle('get-costs',        () => getScannedData().costMap)
-  ipcMain.handle('get-projects',     () => getScannedData().projects)
-  ipcMain.handle('get-all-scanned',  () => getScannedData())
+  ipcMain.handle('get-theme', () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
+  ipcMain.handle('get-claude-dir', () => CLAUDE_DIR)
+  ipcMain.handle('get-costs', () => getScannedData().costMap)
+  ipcMain.handle('get-projects', () => getScannedData().projects)
+  ipcMain.handle('get-all-scanned', () => getScannedData())
 
   ipcMain.on('start-watching', () => startWatcher())
-  ipcMain.on('stop-watching',  () => { watcher?.close(); watcher = null })
+  ipcMain.on('stop-watching', () => { watcher?.close(); watcher = null })
 
   ipcMain.handle('delete-team', async (_e, teamName: string) => {
     const { response } = await dialog.showMessageBox(mainWindow!, {
@@ -517,8 +519,8 @@ app.whenReady().then(() => {
     const r = clearTasks(teamName); if (r.ok) pushData(); return r
   })
 
-  ipcMain.handle('open-cwd',    (_e, cwd: string)      => shell.openPath(cwd))
-  ipcMain.handle('copy-text',   (_e, text: string)     => { clipboard.writeText(text); return true })
+  ipcMain.handle('open-cwd', (_e, cwd: string) => shell.openPath(cwd))
+  ipcMain.handle('copy-text', (_e, text: string) => { clipboard.writeText(text); return true })
   ipcMain.handle('reveal-team', (_e, teamName: string) => {
     const p = path.join(TEAMS_DIR, teamName)
     if (fs.existsSync(p)) shell.showItemInFolder(p)
