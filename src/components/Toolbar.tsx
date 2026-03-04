@@ -48,7 +48,7 @@ export function Toolbar({
           <span className="text-white text-xs font-bold">A</span>
         </div>
         <div>
-          <h1 className="text-sm font-bold text-zinc-900 dark:text-white leading-none">Agent Team View</h1>
+          <h1 className="text-sm font-bold text-zinc-900 dark:text-white leading-none">Claude Lens</h1>
           <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-none mt-0.5 font-mono">{claudeDir}</p>
         </div>
       </div>
