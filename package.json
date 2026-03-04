@@ -1,11 +1,12 @@
 {
   "name": "claude-lens",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A desktop GUI for monitoring and managing Claude Code agent teams",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "concurrently -k -n VITE,ELECTRON \"vite\" \"node scripts/electron-dev.js\"",
-    "build": "tsc -p tsconfig.electron.json && vite build && electron-builder",
+    "build:compile": "tsc -p tsconfig.electron.json && vite build",
+    "build": "npm run build:compile && electron-builder",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -21,13 +22,13 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": "dmg"
+      "target": [{ "target": "dmg", "arch": ["universal"] }]
     },
     "win": {
       "target": "nsis"
     },
     "linux": {
-      "target": "AppImage"
+      "target": ["AppImage", "deb"]
     }
   },
   "author": "",

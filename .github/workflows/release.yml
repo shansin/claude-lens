@@ -17,20 +17,18 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            artifact_name: linux
+            platform: linux
           - os: windows-latest
-            artifact_name: windows
+            platform: win
           - os: macos-latest
-            artifact_name: mac
+            platform: mac
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -38,36 +36,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run build -- --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Compile TypeScript + bundle renderer (separate from electron-builder
+      # so we can pass platform flags directly to electron-builder below)
+      - name: Compile
+        run: npm run build:compile
 
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run build -- --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package Linux
+        if: matrix.platform == 'linux'
+        run: npx electron-builder --linux --publish never
 
-      - name: Build (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run build -- --mac
+      - name: Package Windows
+        if: matrix.platform == 'win'
+        run: npx electron-builder --win --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: base64-encoded .pfx file and its password.
+          # Leave unset to build an unsigned installer.
+          CSC_LINK: ${{ secrets.WIN_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.WIN_CERTIFICATE_PASSWORD }}
+
+      - name: Package macOS
+        if: matrix.platform == 'mac'
+        run: npx electron-builder --mac --publish never
+        env:
+          # Optional: base64-encoded Developer ID Application .p12 and password.
+          # Leave unset to build an unsigned / unnotarized DMG.
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # When CSC_LINK is empty, prevent electron-builder from scanning the
+          # local keychain (which would fail on CI runners).
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Notarization credentials (only used when CSC_LINK is set).
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
+          name: ${{ matrix.platform }}
           path: |
             release/*.AppImage
             release/*.deb
             release/*.exe
             release/*.dmg
             release/*.zip
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   release:
     needs: build
@@ -75,14 +88,12 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
           generate_release_notes: true

@@ -12,6 +12,10 @@ import { registerMetricsHandlers } from './modules/metrics'
 import { registerNotificationHandlers, checkTaskCompletions } from './modules/notifications'
 import type { TaskData } from './modules/notifications'
 
+// Suppress GPU/DRI permission warnings in environments without GPU access
+app.commandLine.appendSwitch('disable-gpu')
+app.commandLine.appendSwitch('disable-software-rasterizer')
+
 const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 const TEAMS_DIR = path.join(CLAUDE_DIR, 'teams')
 const TASKS_DIR = path.join(CLAUDE_DIR, 'tasks')
