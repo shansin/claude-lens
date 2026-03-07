@@ -9,7 +9,10 @@
     "build": "npm run build:compile && electron-builder",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "screenshots": "npm run build:compile && npx electron --no-sandbox scripts/take-screenshots.js",
+    "record": "npm run build:compile && npx electron --no-sandbox scripts/record-video.js",
+    "demo": "npm run build:compile && npx electron --no-sandbox scripts/demo.js"
   },
   "build": {
     "appId": "com.claude.claude-lens",
@@ -22,16 +25,26 @@
       "dist-electron/**/*"
     ],
     "mac": {
-      "target": [{ "target": "dmg", "arch": ["universal"] }]
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ]
     },
     "win": {
       "target": "nsis"
     },
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   },
-  "author": "",
+  "author": "Shantanu <mailme.shantanu@gmail.com>",
   "license": "ISC",
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.1",

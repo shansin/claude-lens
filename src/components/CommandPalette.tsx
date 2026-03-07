@@ -16,11 +16,10 @@ type CommandItem =
   | { type: 'project'; label: string; displayName: string; cwd: string }
 
 const NAVIGATE_ITEMS: CommandItem[] = [
-  { type: 'navigate', label: 'Teams',         description: 'View all agent teams',          source: 'teams' },
   { type: 'navigate', label: 'Projects',      description: 'Browse Claude projects',        source: 'projects' },
+  { type: 'navigate', label: 'Agent Teams',    description: 'View all agent teams',          source: 'teams' },
   { type: 'navigate', label: 'Analytics',     description: 'Usage stats and charts',        source: 'analytics' },
   { type: 'navigate', label: 'Content',       description: 'Memory files and plans',        source: 'content' },
-  { type: 'navigate', label: 'Search',        description: 'Search conversation history',  source: 'search' },
   { type: 'navigate', label: 'Conversations', description: 'Browse conversation logs',      source: 'conversations' },
   { type: 'navigate', label: 'System',        description: 'Processes and auth status',     source: 'system' },
   { type: 'navigate', label: 'Settings',      description: 'Configure app settings',       source: 'settings' },

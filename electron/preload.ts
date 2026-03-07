@@ -56,9 +56,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setPermissions:  (mode: string)                                                                 => ipcRenderer.invoke('set-permissions', mode),
 
   // Analytics
-  getUsageByDay:    ()               => ipcRenderer.invoke('get-usage-by-day'),
+  getUsageByDay:    (days?: number)  => ipcRenderer.invoke('get-usage-by-day', days),
   getActivityFeed:  (limit?: number) => ipcRenderer.invoke('get-activity-feed', limit),
   getUsageExtended: (days: number)   => ipcRenderer.invoke('get-usage-extended', days),
+  getCacheStats:    (days?: number)  => ipcRenderer.invoke('get-cache-stats', days),
 
   // System
   getProcesses:       ()            => ipcRenderer.invoke('get-processes'),
@@ -68,6 +69,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Conversation viewer
   getSessionMessages: (projectKey: string, sessionId: string) => ipcRenderer.invoke('get-session-messages', projectKey, sessionId),
+  exportSession: (markdown: string, suggestedName: string) => ipcRenderer.invoke('export-session', markdown, suggestedName),
+
+  // Team management
+  createTeam: (teamName: string, description: string) => ipcRenderer.invoke('create-team', teamName, description),
 
   // Metrics
   getAgentMetrics:    (teamName: string) => ipcRenderer.invoke('get-agent-metrics', teamName),

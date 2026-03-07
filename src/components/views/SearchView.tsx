@@ -44,7 +44,7 @@ export function SearchView({ onOpenSession }: Props = {}) {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {

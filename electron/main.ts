@@ -12,10 +12,6 @@ import { registerMetricsHandlers } from './modules/metrics'
 import { registerNotificationHandlers, checkTaskCompletions } from './modules/notifications'
 import type { TaskData } from './modules/notifications'
 
-// Suppress GPU/DRI permission warnings in environments without GPU access
-app.commandLine.appendSwitch('disable-gpu')
-app.commandLine.appendSwitch('disable-software-rasterizer')
-
 const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 const TEAMS_DIR = path.join(CLAUDE_DIR, 'teams')
 const TASKS_DIR = path.join(CLAUDE_DIR, 'tasks')
@@ -529,6 +525,45 @@ app.whenReady().then(() => {
     const p = path.join(TEAMS_DIR, teamName)
     if (fs.existsSync(p)) shell.showItemInFolder(p)
     return true
+  })
+
+  ipcMain.handle('create-team', async (_e, teamName: string, description: string) => {
+    try {
+      const teamDir = path.join(TEAMS_DIR, teamName)
+      if (fs.existsSync(teamDir)) return { ok: false, error: `Team "${teamName}" already exists` }
+      fs.mkdirSync(teamDir, { recursive: true })
+      const config = {
+        name: teamName,
+        description: description || '',
+        createdAt: Date.now(),
+        leadAgentId: '',
+        leadSessionId: '',
+        members: [],
+      }
+      fs.writeFileSync(path.join(teamDir, 'config.json'), JSON.stringify(config, null, 2), 'utf8')
+      pushData()
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: String(e) }
+    }
+  })
+
+  ipcMain.handle('export-session', async (_e, markdown: string, suggestedName: string) => {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow!, {
+      title: 'Export Conversation',
+      defaultPath: path.join(os.homedir(), 'Desktop', suggestedName),
+      filters: [
+        { name: 'Markdown', extensions: ['md'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    })
+    if (canceled || !filePath) return { ok: false, cancelled: true }
+    try {
+      fs.writeFileSync(filePath, markdown, 'utf8')
+      return { ok: true, path: filePath }
+    } catch (e) {
+      return { ok: false, error: String(e) }
+    }
   })
 
   // Module handlers

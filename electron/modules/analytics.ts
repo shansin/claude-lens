@@ -1,9 +1,10 @@
 /**
- * Analytics module – IPC handlers for usage charts + activity feed
+ * Analytics module – IPC handlers for usage charts + activity feed + cache stats
  *
  * Handlers registered:
- *   'get-usage-by-day'   → DayUsage[]   (last 30 days of token/cost data)
- *   'get-activity-feed'  → ActivityEntry[] (recent messages across all projects)
+ *   'get-usage-by-day'   (days?: number)  → DayUsage[]
+ *   'get-activity-feed'  (limit?: number) → ActivityEntry[]
+ *   'get-cache-stats'    (days?: number)  → CacheStats
  */
 
 import type { IpcMain } from 'electron'
@@ -13,18 +14,22 @@ import os from 'os'
 
 const PROJECTS_DIR = path.join(os.homedir(), '.claude', 'projects')
 
-// ── Pricing (per million tokens) [input, output] ─────────────────
+// ── Pricing (per million tokens) [input, output, cacheWrite, cacheRead] ──
 
-const PRICING: Record<string, [number, number]> = {
-  'claude-opus-4-6':   [15,  75],
-  'claude-sonnet-4-6': [3,   15],
-  'claude-haiku-4-5':  [0.8, 4],
-  'claude-sonnet-4-5': [3,   15],
-  'claude-sonnet-3-7': [3,   15],
-  'claude-haiku-3-5':  [0.8, 4],
+const PRICING: Record<string, [number, number, number, number]> = {
+  'claude-opus-4-6':   [15,   75,   18.75, 1.5],
+  'claude-opus-4-5':   [15,   75,   18.75, 1.5],
+  'claude-sonnet-4-6': [3,    15,   3.75,  0.3],
+  'claude-sonnet-4-5': [3,    15,   3.75,  0.3],
+  'claude-sonnet-3-7': [3,    15,   3.75,  0.3],
+  'claude-sonnet-3-5': [3,    15,   3.75,  0.3],
+  'claude-haiku-4-5':  [0.8,  4,    1.0,   0.08],
+  'claude-haiku-3-5':  [0.8,  4,    1.0,   0.08],
+  'claude-3-opus':     [15,   75,   18.75, 1.5],
+  'claude-3-haiku':    [0.25, 1.25, 0.3,   0.03],
 }
 
-function getPricing(model: string): [number, number] | null {
+function getPricing(model: string): [number, number, number, number] | null {
   const key = Object.keys(PRICING).find(k => model.includes(k))
   return key ? PRICING[key] : null
 }
@@ -61,6 +66,25 @@ interface ActivityEntry {
   teamName?: string
   model?: string
   preview?: string
+}
+
+interface CacheDayStat {
+  date: string
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  cacheCreationCostUSD: number
+  cacheReadCostUSD: number
+  savedUSD: number
+}
+
+export interface CacheStats {
+  days: CacheDayStat[]
+  totalCacheCreationTokens: number
+  totalCacheReadTokens: number
+  totalCacheCreationCostUSD: number
+  totalCacheReadCostUSD: number
+  totalSavedUSD: number
+  hitRate: number
 }
 
 // ── JSONL scanning helper ─────────────────────────────────────────
@@ -106,11 +130,10 @@ function* iterateAllRecords(): Generator<{ rec: RawRecord; projDir: string }> {
 
 // ── get-usage-by-day ──────────────────────────────────────────────
 
-function getUsageByDay(): DayUsage[] {
+function getUsageByDay(days = 30): DayUsage[] {
   const now = Date.now()
-  const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
+  const cutoff = now - days * 24 * 60 * 60 * 1000
 
-  // Deduplicate by message.id: keep record with highest output_tokens
   const msgBucket = new Map<string, {
     date: string
     model: string
@@ -125,7 +148,7 @@ function getUsageByDay(): DayUsage[] {
     if (!msg?.usage || !msg.model) continue
 
     const ts = rec.timestamp ? new Date(rec.timestamp).getTime() : 0
-    if (ts < thirtyDaysAgo || ts === 0) continue
+    if (ts < cutoff || ts === 0) continue
 
     const date = new Date(ts).toISOString().slice(0, 10)
     const msgId = msg.id ?? `${rec.sessionId}:${ts}`
@@ -143,7 +166,6 @@ function getUsageByDay(): DayUsage[] {
     }
   }
 
-  // Bucket by day
   const dayMap = new Map<string, DayUsage>()
 
   for (const entry of msgBucket.values()) {
@@ -169,9 +191,8 @@ function getUsageByDay(): DayUsage[] {
     if (cost !== null) mb.costUSD = (mb.costUSD ?? 0) + cost
   }
 
-  // Fill missing days with zeros
   const result: DayUsage[] = []
-  for (let i = 29; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now - i * 24 * 60 * 60 * 1000)
     const dateStr = d.toISOString().slice(0, 10)
     result.push(dayMap.get(dateStr) ?? {
@@ -180,6 +201,103 @@ function getUsageByDay(): DayUsage[] {
   }
 
   return result
+}
+
+// ── get-cache-stats ───────────────────────────────────────────────
+
+function getCacheStats(days = 90): CacheStats {
+  const now = Date.now()
+  const cutoff = now - days * 24 * 60 * 60 * 1000
+
+  const msgBucket = new Map<string, {
+    date: string
+    model: string
+    cacheCreationTokens: number
+    cacheReadTokens: number
+    outputTokens: number
+  }>()
+
+  for (const { rec } of iterateAllRecords()) {
+    if (rec.type !== 'assistant') continue
+    const msg = rec.message
+    if (!msg?.usage || !msg.model) continue
+
+    const ts = rec.timestamp ? new Date(rec.timestamp).getTime() : 0
+    if (ts < cutoff || ts === 0) continue
+
+    const cacheCreate = msg.usage.cache_creation_input_tokens ?? 0
+    const cacheRead   = msg.usage.cache_read_input_tokens ?? 0
+    if (cacheCreate === 0 && cacheRead === 0) continue
+
+    const date  = new Date(ts).toISOString().slice(0, 10)
+    const msgId = msg.id ?? `${rec.sessionId}:${ts}`
+    const outTokens = msg.usage.output_tokens ?? 0
+
+    const existing = msgBucket.get(msgId)
+    if (!existing || outTokens >= existing.outputTokens) {
+      msgBucket.set(msgId, {
+        date, model: msg.model,
+        cacheCreationTokens: cacheCreate,
+        cacheReadTokens: cacheRead,
+        outputTokens: outTokens,
+      })
+    }
+  }
+
+  const dayMap = new Map<string, CacheDayStat>()
+
+  for (const entry of msgBucket.values()) {
+    let day = dayMap.get(entry.date)
+    if (!day) {
+      day = { date: entry.date, cacheCreationTokens: 0, cacheReadTokens: 0, cacheCreationCostUSD: 0, cacheReadCostUSD: 0, savedUSD: 0 }
+      dayMap.set(entry.date, day)
+    }
+    day.cacheCreationTokens += entry.cacheCreationTokens
+    day.cacheReadTokens     += entry.cacheReadTokens
+
+    const p = getPricing(entry.model)
+    if (p) {
+      const [inputPrice, , cacheWritePrice, cacheReadPrice] = p
+      day.cacheCreationCostUSD += (entry.cacheCreationTokens * cacheWritePrice) / 1_000_000
+      day.cacheReadCostUSD     += (entry.cacheReadTokens     * cacheReadPrice)  / 1_000_000
+      // Savings = what read tokens would have cost at full input price minus actual cache-read price
+      day.savedUSD             += (entry.cacheReadTokens * (inputPrice - cacheReadPrice)) / 1_000_000
+    }
+  }
+
+  // Fill missing days
+  const resultDays: CacheDayStat[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d       = new Date(now - i * 24 * 60 * 60 * 1000)
+    const dateStr = d.toISOString().slice(0, 10)
+    resultDays.push(dayMap.get(dateStr) ?? {
+      date: dateStr, cacheCreationTokens: 0, cacheReadTokens: 0,
+      cacheCreationCostUSD: 0, cacheReadCostUSD: 0, savedUSD: 0,
+    })
+  }
+
+  let totalCreation = 0, totalRead = 0, totalCreationCost = 0, totalReadCost = 0, totalSaved = 0
+  for (const d of resultDays) {
+    totalCreation    += d.cacheCreationTokens
+    totalRead        += d.cacheReadTokens
+    totalCreationCost += d.cacheCreationCostUSD
+    totalReadCost    += d.cacheReadCostUSD
+    totalSaved       += d.savedUSD
+  }
+
+  const hitRate = (totalCreation + totalRead) > 0
+    ? totalRead / (totalCreation + totalRead)
+    : 0
+
+  return {
+    days: resultDays,
+    totalCacheCreationTokens:  totalCreation,
+    totalCacheReadTokens:      totalRead,
+    totalCacheCreationCostUSD: totalCreationCost,
+    totalCacheReadCostUSD:     totalReadCost,
+    totalSavedUSD:             totalSaved,
+    hitRate,
+  }
 }
 
 // ── get-activity-feed ─────────────────────────────────────────────
@@ -211,13 +329,13 @@ function getActivityFeed(limit: number = 100): ActivityEntry[] {
     const preview = extractPreview(rec.message.content)
 
     entries.push({
-      timestamp: ts,
-      type: rec.type as 'user' | 'assistant',
-      sessionId: rec.sessionId ?? '',
-      projectCwd: rec.cwd ?? '',
+      timestamp:   ts,
+      type:        rec.type as 'user' | 'assistant',
+      sessionId:   rec.sessionId ?? '',
+      projectCwd:  rec.cwd ?? '',
       projectName: path.basename(rec.cwd ?? ''),
-      teamName: rec.teamName || undefined,
-      model: rec.message.model || undefined,
+      teamName:    rec.teamName || undefined,
+      model:       rec.message.model || undefined,
       preview,
     })
   }
@@ -229,6 +347,7 @@ function getActivityFeed(limit: number = 100): ActivityEntry[] {
 // ── Register handlers ─────────────────────────────────────────────
 
 export function registerAnalyticsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('get-usage-by-day', () => getUsageByDay())
+  ipcMain.handle('get-usage-by-day',  (_e, days?: number) => getUsageByDay(days ?? 30))
   ipcMain.handle('get-activity-feed', (_e, limit?: number) => getActivityFeed(limit ?? 100))
+  ipcMain.handle('get-cache-stats',   (_e, days?: number) => getCacheStats(days ?? 90))
 }

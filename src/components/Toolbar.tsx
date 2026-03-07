@@ -1,4 +1,4 @@
-import { LayoutGrid, GitFork, Columns, RefreshCw, FolderCode, Users, BarChart2, Search, FolderOpen, Monitor, Settings, MessageSquare, Command } from 'lucide-react'
+import { LayoutGrid, GitFork, Columns, RefreshCw, FolderCode, Users, BarChart2, FolderOpen, Monitor, Settings, MessageSquare, Plus } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { ViewMode, SourceMode } from '../types'
 
@@ -9,11 +9,19 @@ interface Props {
   onViewChange: (v: ViewMode) => void
   onRefresh: () => void
   onOpenPalette: () => void
+  onNewTeam?: () => void
   teamCount: number
   projectCount: number
-  lastUpdated: Date | null
   claudeDir: string
   scanning: boolean
+  todayCostUSD: number | null
+  monthlyCostUSD: number | null
+}
+
+function costColor(n: number): string {
+  if (n < 5)  return 'text-emerald-400'
+  if (n < 20) return 'text-amber-400'
+  return 'text-red-400'
 }
 
 const VIEWS: { id: ViewMode; icon: React.ElementType; label: string }[] = [
@@ -23,29 +31,39 @@ const VIEWS: { id: ViewMode; icon: React.ElementType; label: string }[] = [
 ]
 
 const PRIMARY_NAV: { id: SourceMode; icon: React.ElementType; label: string }[] = [
-  { id: 'teams', icon: Users, label: 'Teams' },
   { id: 'projects', icon: FolderCode, label: 'Projects' },
+  { id: 'teams', icon: Users, label: 'Agent Teams' },
   { id: 'analytics', icon: BarChart2, label: 'Analytics' },
   { id: 'content', icon: FolderOpen, label: 'Content' },
-  { id: 'search', icon: Search, label: 'Search' },
   { id: 'conversations', icon: MessageSquare, label: 'Conversations' },
 ]
 
 export function Toolbar({
   source, onSourceChange,
   view, onViewChange,
-  onRefresh, onOpenPalette,
+  onRefresh, onOpenPalette, onNewTeam,
   teamCount, projectCount,
-  lastUpdated, claudeDir,
+  claudeDir,
   scanning,
+  todayCostUSD,
+  monthlyCostUSD,
 }: Props) {
   return (
-    <header className="flex items-center gap-3 px-5 py-3 border-b border-zinc-200 dark:border-white/10
+    <header className="relative flex items-center gap-3 px-5 py-3
                        bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md shrink-0 select-none">
+      {/* Animated gradient bottom border */}
+      <div
+        className="absolute bottom-0 left-0 right-0 h-px"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, #8b5cf6 25%, #3b82f6 50%, #8b5cf6 75%, transparent 100%)',
+          backgroundSize: '200% 100%',
+          animation: 'gradient-slide 4s linear infinite',
+        }}
+      />
       {/* Logo */}
-      <div className="flex items-center gap-2.5 mr-1">
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center shadow-md">
-          <span className="text-white text-xs font-bold">A</span>
+      <div className="flex items-center gap-2.5 mr-1 pt-0.5">
+        <div className="w-7 h-7 flex items-center justify-center shrink-0">
+          <img src="./icon.png" alt="Claude Lens" className="w-full h-full object-contain drop-shadow-sm" />
         </div>
         <div>
           <h1 className="text-sm font-bold text-zinc-900 dark:text-white leading-none">Claude Lens</h1>
@@ -120,23 +138,45 @@ export function Toolbar({
 
       <div className="flex-1" />
 
-      {lastUpdated && (
-        <span className="text-xs text-zinc-400 dark:text-zinc-500 hidden sm:block">
-          {lastUpdated.toLocaleTimeString()}
-        </span>
-      )}
+      {/* Status: model + cost */}
+      <div className="hidden sm:flex items-center gap-2">
+        {(todayCostUSD !== null || monthlyCostUSD !== null) && (
+          <div className={cn(
+            'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium font-mono',
+            'bg-zinc-100 dark:bg-white/[0.06] border border-zinc-200 dark:border-white/10',
+            costColor(todayCostUSD ?? 0),
+          )}>
+            {todayCostUSD !== null && (
+              <>
+                <span>${todayCostUSD.toFixed(2)}</span>
+                <span className="text-zinc-500 dark:text-zinc-600 font-normal">today</span>
+              </>
+            )}
+            {todayCostUSD !== null && monthlyCostUSD !== null && (
+              <span className="text-zinc-300 dark:text-zinc-700 mx-0.5">|</span>
+            )}
+            {monthlyCostUSD !== null && (
+              <>
+                <span className={costColor(monthlyCostUSD)}>${monthlyCostUSD.toFixed(2)}</span>
+                <span className="text-zinc-500 dark:text-zinc-600 font-normal">month</span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
-      {/* Command palette trigger */}
-      <button
-        onClick={onOpenPalette}
-        title="Command palette (⌘K)"
-        className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-zinc-400 dark:text-zinc-500
-                   bg-zinc-100 dark:bg-white/[0.06] border border-zinc-200 dark:border-white/10
-                   hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-white/10 transition-colors"
-      >
-        <Command className="w-3 h-3" />
-        <span>⌘K</span>
-      </button>
+      {/* New Team button (only visible on teams source) */}
+      {source === 'teams' && onNewTeam && (
+        <button
+          onClick={onNewTeam}
+          title="New Team"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                     bg-violet-600 hover:bg-violet-700 text-white transition-colors shadow-sm"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Team
+        </button>
+      )}
 
       {/* System & Settings icon buttons */}
       <button
@@ -173,11 +213,6 @@ export function Toolbar({
         <RefreshCw className="w-4 h-4" />
       </button>
 
-      {/* Live indicator */}
-      <div className="hidden xl:flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        <span>Live</span>
-      </div>
     </header>
   )
 }

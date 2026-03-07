@@ -4,16 +4,10 @@ import {
   CartesianGrid, Legend,
 } from 'recharts'
 import { TrendingUp, DollarSign, Zap } from 'lucide-react'
-import { cn } from '../lib/utils'
+import { cn, shortenModel } from '../lib/utils'
+import type { DayUsage } from '../types'
 
-export interface DayUsage {
-  date: string
-  inputTokens: number
-  outputTokens: number
-  cacheTokens: number
-  costUSD: number | null
-  byModel: Record<string, { inputTokens: number; outputTokens: number; costUSD: number | null }>
-}
+export type { DayUsage }
 
 interface Props {
   data: DayUsage[]
@@ -186,12 +180,4 @@ function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label
       <p className={cn('text-sm font-semibold font-mono', accent)}>{value}</p>
     </div>
   )
-}
-
-function shortenModel(model: string): string {
-  if (model.includes('claude')) {
-    const m = model.replace('claude-', '').replace(/-/g, ' ')
-    return m.replace(/\b\w/g, c => c.toUpperCase())
-  }
-  return model
 }

@@ -1,17 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Search, User, Bot, MessageSquare } from 'lucide-react'
 import { cn, formatRelativeTime } from '../lib/utils'
+import type { ActivityEntry } from '../types'
 
-export interface ActivityEntry {
-  timestamp: number
-  type: 'user' | 'assistant'
-  sessionId: string
-  projectCwd: string
-  projectName: string
-  teamName?: string
-  model?: string
-  preview?: string
-}
+export type { ActivityEntry }
 
 interface Props {
   entries: ActivityEntry[]

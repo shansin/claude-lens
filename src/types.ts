@@ -88,7 +88,7 @@ export interface TeamCostSummary {
 // ── UI ────────────────────────────────────────────────────────
 
 export type ViewMode   = 'cards' | 'graph' | 'split'
-export type SourceMode = 'teams' | 'projects' | 'analytics' | 'content' | 'search' | 'system' | 'settings' | 'conversations'
+export type SourceMode = 'teams' | 'projects' | 'analytics' | 'content' | 'system' | 'settings' | 'conversations'
 export type Theme      = 'light' | 'dark'
 
 // ── Conversation viewer ────────────────────────────────────────
@@ -108,11 +108,107 @@ export interface SessionMessage {
   usage?: { inputTokens: number; outputTokens: number; cacheCreationTokens: number; cacheReadTokens: number }
 }
 
-// ── Electron API ──────────────────────────────────────────────
+// ── Analytics ─────────────────────────────────────────────────
+
+export interface DayUsage {
+  date: string
+  inputTokens: number
+  outputTokens: number
+  cacheTokens: number
+  costUSD: number | null
+  byModel: Record<string, { inputTokens: number; outputTokens: number; costUSD: number | null }>
+}
+
+export interface ActivityEntry {
+  timestamp: number
+  type: 'user' | 'assistant'
+  sessionId: string
+  projectCwd: string
+  projectName: string
+  teamName?: string
+  model?: string
+  preview?: string
+}
+
+export interface ModelStats {
+  model: string
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalCacheTokens: number
+  costUSD: number | null
+  messageCount: number
+  projectCount: number
+}
+
+export interface AgentMetric {
+  agentName: string
+  agentType: string
+  model: string
+  isLead: boolean
+  tasksCompleted: number
+  tasksActive: number
+  tasksPending: number
+  estimatedCostUSD: number | null
+}
+
+// ── Cache stats ────────────────────────────────────────────────
+
+export interface CacheDayStat {
+  date: string
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  cacheCreationCostUSD: number
+  cacheReadCostUSD: number
+  savedUSD: number
+}
+
+export interface CacheStats {
+  days: CacheDayStat[]
+  totalCacheCreationTokens: number
+  totalCacheReadTokens: number
+  totalCacheCreationCostUSD: number
+  totalCacheReadCostUSD: number
+  totalSavedUSD: number
+  hitRate: number
+}
+
+// ── System ────────────────────────────────────────────────────
+
+export interface ProcessInfo {
+  pid: number
+  cpu: number
+  mem: number
+  command: string
+  elapsed: string
+}
+
+export interface AuthStatus {
+  subscriptionType: string | null
+  rateLimitTier: string | null
+  expiresAt: string | null
+  scopes: string[]
+  isExpired: boolean
+  claudeVersion: string | null
+}
+
+export interface TelemetryEvent {
+  eventName: string
+  timestamp: string
+  sessionId: string
+  model: string
+  version: string
+  processStats?: { cpu?: number; memory?: number }
+}
+
+// ── IPC result types ──────────────────────────────────────────
 
 export interface ActionResult { ok: boolean; cancelled?: boolean; error?: string }
 
 export interface ScannedData { costMap: CostMap; projects: ProjectData[] }
+
+export interface ExportResult { ok: boolean; cancelled?: boolean; path?: string; error?: string }
+
+// ── Electron API ──────────────────────────────────────────────
 
 declare global {
   interface Window {
@@ -131,30 +227,40 @@ declare global {
       deleteTeam:     (teamName: string) => Promise<ActionResult>
       archiveTeam:    (teamName: string) => Promise<ActionResult>
       clearTasks:     (teamName: string) => Promise<ActionResult>
+      createTeam:     (teamName: string, description: string) => Promise<ActionResult>
       openCwd:        (cwd: string)      => Promise<void>
       copyText:       (text: string)     => Promise<boolean>
       revealTeam:     (teamName: string) => Promise<boolean>
       // Conversations
       getSessionMessages: (projectKey: string, sessionId: string) => Promise<SessionMessage[]>
-      // Content
+      exportSession:      (markdown: string, suggestedName: string) => Promise<ExportResult>
+      // Content (typed loosely to allow each component its own local interface)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getPlans:          () => Promise<any[]>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getTodos:          () => Promise<any[]>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getMemoryFiles:    () => Promise<any[]>
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       getProjectSizes:   () => Promise<any[]>
       deleteProjectData: (projectKey: string) => Promise<{ ok: boolean; deletedCount: number; freedBytes: number; error?: string }>
       exportCsv:         () => Promise<{ ok: boolean; path?: string; rowCount?: number; error?: string }>
-      searchContent:     (query: string, limit?: number) => Promise<any[]>
+      searchContent:     (query: string, limit?: number) => Promise<Array<{
+        sessionId: string; projectCwd: string; projectName: string;
+        projectKey?: string; teamName?: string; timestamp: number; type: string; snippet: string
+      }>>
       // Analytics
-      getUsageByDay:     () => Promise<any[]>
-      getActivityFeed:   (limit?: number) => Promise<any[]>
-      getUsageExtended:  (days: number) => Promise<any[]>
-      getAgentMetrics:   (teamName: string) => Promise<any[]>
-      getModelComparison:() => Promise<any[]>
+      getUsageByDay:     (days?: number)    => Promise<DayUsage[]>
+      getActivityFeed:   (limit?: number)   => Promise<ActivityEntry[]>
+      getUsageExtended:  (days: number)     => Promise<DayUsage[]>
+      getCacheStats:     (days?: number)    => Promise<CacheStats>
+      getAgentMetrics:   (teamName: string) => Promise<AgentMetric[]>
+      getModelComparison: ()                => Promise<ModelStats[]>
       // System
-      getProcesses:      () => Promise<any[]>
+      getProcesses:      () => Promise<ProcessInfo[]>
       killProcess:       (pid: number) => Promise<{ ok: boolean; error?: string }>
-      getAuthStatus:     () => Promise<any>
-      getTelemetryEvents:() => Promise<any[]>
+      getAuthStatus:     () => Promise<AuthStatus>
+      getTelemetryEvents: () => Promise<TelemetryEvent[]>
       // Settings
       getSettings:      () => Promise<Record<string, unknown>>
       saveSettings:     (settings: Record<string, unknown>) => Promise<ActionResult>

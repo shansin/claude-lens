@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Terminal, FileText, Globe, Cpu, ChevronDown, ChevronRight } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { Terminal, FileText, Globe, Cpu, ChevronDown, ChevronRight, Search, X } from 'lucide-react'
 import { cn, shortenModel } from '../lib/utils'
 import type { ContentBlock, SessionMessage } from '../types'
 
@@ -7,7 +7,6 @@ export type { ContentBlock, SessionMessage }
 
 function shortModelName(model?: string): string {
   if (!model) return ''
-  // Strip date suffix like -20251001
   const m = model.replace(/-\d{8}$/, '')
   return shortenModel(m)
 }
@@ -31,6 +30,21 @@ function getToolIcon(name: string) {
     return <Globe className="w-3.5 h-3.5" />
   }
   return <Cpu className="w-3.5 h-3.5" />
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  if (!query) return <>{text}</>
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const parts = text.split(regex)
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part)
+          ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-500/40 text-inherit rounded px-0.5">{part}</mark>
+          : <span key={i}>{part}</span>
+      )}
+    </>
+  )
 }
 
 function ToolUseBlock({ block }: { block: Extract<ContentBlock, { type: 'tool_use' }> }) {
@@ -99,7 +113,7 @@ function ThinkingBlock({ block }: { block: Extract<ContentBlock, { type: 'thinki
   )
 }
 
-function MessageCard({ msg }: { msg: SessionMessage }) {
+function MessageCard({ msg, searchQuery }: { msg: SessionMessage; searchQuery: string }) {
   const isUser = msg.type === 'user'
   return (
     <div className={cn(
@@ -132,7 +146,7 @@ function MessageCard({ msg }: { msg: SessionMessage }) {
           if (block.type === 'text') {
             return (
               <p key={i} className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-200 leading-relaxed">
-                {block.text}
+                <HighlightText text={block.text} query={searchQuery} />
               </p>
             )
           }
@@ -157,12 +171,56 @@ function MessageCard({ msg }: { msg: SessionMessage }) {
   )
 }
 
+function messageMatchesQuery(msg: SessionMessage, query: string): boolean {
+  if (!query) return true
+  const q = query.toLowerCase()
+  return msg.content.some(block => {
+    if (block.type === 'text') return block.text.toLowerCase().includes(q)
+    if (block.type === 'thinking') return block.thinking.toLowerCase().includes(q)
+    if (block.type === 'tool_result') {
+      const text = typeof block.content === 'string'
+        ? block.content
+        : block.content.map(c => c.text ?? '').join(' ')
+      return text.toLowerCase().includes(q)
+    }
+    return false
+  })
+}
+
 interface Props {
   messages: SessionMessage[]
   loading: boolean
 }
 
 export function ConversationThread({ messages, loading }: Props) {
+  const [searchOpen, setSearchOpen]   = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Ctrl+F / Cmd+F opens search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault()
+        setSearchOpen(v => {
+          if (!v) setTimeout(() => searchInputRef.current?.focus(), 50)
+          return !v
+        })
+      }
+      if (e.key === 'Escape') {
+        setSearchOpen(false)
+        setSearchQuery('')
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery.trim()) return messages
+    return messages.filter(m => messageMatchesQuery(m, searchQuery.trim()))
+  }, [messages, searchQuery])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full gap-3 text-zinc-400">
@@ -181,12 +239,62 @@ export function ConversationThread({ messages, loading }: Props) {
   }
 
   return (
-    <div className="overflow-y-auto h-full p-4">
-      <div className="flex flex-col gap-3 max-w-3xl mx-auto">
-        {messages.map(msg => (
-          <MessageCard key={msg.id} msg={msg} />
-        ))}
+    <div className="flex flex-col h-full">
+      {/* In-session search bar */}
+      {searchOpen && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-200 dark:border-white/[0.06]
+                        bg-white/80 dark:bg-zinc-950/80 shrink-0">
+          <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search messages… (Esc to close)"
+            className="flex-1 text-sm bg-transparent text-zinc-800 dark:text-zinc-200
+                       placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none"
+          />
+          {searchQuery && (
+            <span className="text-xs text-zinc-400">
+              {filteredMessages.length} / {messages.length}
+            </span>
+          )}
+          <button
+            onClick={() => { setSearchOpen(false); setSearchQuery('') }}
+            className="p-1 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Thread */}
+      <div className="overflow-y-auto flex-1 p-4">
+        {filteredMessages.length === 0 && searchQuery ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 opacity-40">
+            <Search className="w-8 h-8 text-zinc-400" />
+            <p className="text-sm text-zinc-500">No messages match "{searchQuery}"</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 max-w-3xl mx-auto">
+            {filteredMessages.map(msg => (
+              <MessageCard key={msg.id} msg={msg} searchQuery={searchQuery} />
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Hint when search is closed */}
+      {!searchOpen && messages.length > 0 && (
+        <div className="px-4 py-1.5 border-t border-zinc-100 dark:border-white/[0.04] shrink-0">
+          <button
+            onClick={() => { setSearchOpen(true); setTimeout(() => searchInputRef.current?.focus(), 50) }}
+            className="text-xs text-zinc-400 hover:text-zinc-500 transition-colors flex items-center gap-1"
+          >
+            <Search className="w-3 h-3" />
+            <span>Search messages (⌘F)</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -72,6 +72,8 @@ export function useTeamData() {
   const deleteTeam  = (n: string) => withFeedback(() => window.electronAPI.deleteTeam(n),  `Deleted "${n}"`)
   const archiveTeam = (n: string) => withFeedback(() => window.electronAPI.archiveTeam(n), `Archived "${n}"`)
   const clearTasks  = (n: string) => withFeedback(() => window.electronAPI.clearTasks(n),  `Cleared tasks for "${n}"`)
+  const createTeam  = (name: string, description: string) =>
+    withFeedback(() => window.electronAPI.createTeam(name, description), `Created team "${name}"`)
   const openCwd     = (cwd: string) => window.electronAPI.openCwd(cwd)
   const revealTeam  = (n: string) => window.electronAPI.revealTeam(n)
   const copyText    = async (text: string, label = 'Copied') => {
@@ -83,6 +85,6 @@ export function useTeamData() {
     teams, theme, loading, scanning, lastUpdated, claudeDir,
     costMap, projects, toastMsg,
     refresh, refreshScanned,
-    deleteTeam, archiveTeam, clearTasks, openCwd, revealTeam, copyText,
+    deleteTeam, archiveTeam, clearTasks, createTeam, openCwd, revealTeam, copyText,
   }
 }

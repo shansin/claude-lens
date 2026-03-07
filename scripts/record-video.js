@@ -1,31 +1,39 @@
 #!/usr/bin/env node
 /**
- * Screenshot automation script for Claude Lens.
- * Launches the built Electron app, navigates each view, and captures PNGs.
+ * Interactive video recording script for Claude Lens.
+ * Launches the built Electron app with sensitive data blurred,
+ * then records as you navigate. Close the window to stop and save.
  *
- * Usage: npx electron --no-sandbox scripts/take-screenshots.js
+ * Requirements: ffmpeg must be installed (apt install ffmpeg)
+ * Usage: npx electron --no-sandbox scripts/record-video.js
+ *
+ * Output: recordings/claude-lens-YYYY-MM-DD-HH-MM-SS.mp4
  */
 
 const { app, BrowserWindow, ipcMain, nativeTheme, shell, clipboard, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const os = require('os')
+const { spawn } = require('child_process')
 
 const ROOT = path.join(__dirname, '..')
 const DIST_DIR = path.join(ROOT, 'dist')
 const DIST_ELECTRON = path.join(ROOT, 'dist-electron')
-const SCREENSHOTS_DIR = path.join(ROOT, 'screenshots')
+const RECORDINGS_DIR = path.join(ROOT, 'recordings')
 
-// Register all IPC handlers exactly as the main app does
-const { registerContentHandlers }     = require(path.join(DIST_ELECTRON, 'modules/content'))
-const { registerSettingsHandlers }    = require(path.join(DIST_ELECTRON, 'modules/settings'))
-const { registerAnalyticsHandlers }   = require(path.join(DIST_ELECTRON, 'modules/analytics'))
-const { registerSystemHandlers }      = require(path.join(DIST_ELECTRON, 'modules/system'))
-const { registerViewerHandlers }      = require(path.join(DIST_ELECTRON, 'modules/viewer'))
-const { registerMetricsHandlers }     = require(path.join(DIST_ELECTRON, 'modules/metrics'))
+const FRAMERATE = 60  // frames per second
+const FRAME_INTERVAL = Math.round(1000 / FRAMERATE)
+
+// ── Register all IPC handlers exactly as the main app does ──────────────────
+const { registerContentHandlers }      = require(path.join(DIST_ELECTRON, 'modules/content'))
+const { registerSettingsHandlers }     = require(path.join(DIST_ELECTRON, 'modules/settings'))
+const { registerAnalyticsHandlers }    = require(path.join(DIST_ELECTRON, 'modules/analytics'))
+const { registerSystemHandlers }       = require(path.join(DIST_ELECTRON, 'modules/system'))
+const { registerViewerHandlers }       = require(path.join(DIST_ELECTRON, 'modules/viewer'))
+const { registerMetricsHandlers }      = require(path.join(DIST_ELECTRON, 'modules/metrics'))
 const { registerNotificationHandlers } = require(path.join(DIST_ELECTRON, 'modules/notifications'))
 
-// Replicate IPC handlers from main.ts ─────────────────────────────────────
+// ── Replicate IPC handlers from main.ts ──────────────────────────────────────
 const CLAUDE_DIR  = path.join(os.homedir(), '.claude')
 const TEAMS_DIR   = path.join(CLAUDE_DIR, 'teams')
 const TASKS_DIR   = path.join(CLAUDE_DIR, 'tasks')
@@ -55,14 +63,13 @@ function readTeamData() {
   return result.sort((a, b) => (b.team.createdAt ?? 0) - (a.team.createdAt ?? 0))
 }
 
-// Pricing / cost helpers
 const MODEL_PRICING = {
-  'claude-opus-4':    { input: 15,  output: 75,  cacheWrite: 18.75, cacheRead: 1.50 },
-  'claude-sonnet-4':  { input: 3,   output: 15,  cacheWrite: 3.75,  cacheRead: 0.30 },
-  'claude-haiku-4':   { input: 0.8, output: 4,   cacheWrite: 1.00,  cacheRead: 0.08 },
-  'claude-sonnet-3':  { input: 3,   output: 15,  cacheWrite: 3.75,  cacheRead: 0.30 },
-  'claude-haiku-3':   { input: 0.8, output: 4,   cacheWrite: 1.00,  cacheRead: 0.08 },
-  'claude-opus-3':    { input: 15,  output: 75,  cacheWrite: 18.75, cacheRead: 1.50 },
+  'claude-opus-4':   { input: 15,  output: 75,  cacheWrite: 18.75, cacheRead: 1.50 },
+  'claude-sonnet-4': { input: 3,   output: 15,  cacheWrite: 3.75,  cacheRead: 0.30 },
+  'claude-haiku-4':  { input: 0.8, output: 4,   cacheWrite: 1.00,  cacheRead: 0.08 },
+  'claude-sonnet-3': { input: 3,   output: 15,  cacheWrite: 3.75,  cacheRead: 0.30 },
+  'claude-haiku-3':  { input: 0.8, output: 4,   cacheWrite: 1.00,  cacheRead: 0.08 },
+  'claude-opus-3':   { input: 15,  output: 75,  cacheWrite: 18.75, cacheRead: 1.50 },
 }
 function getPrice(model) {
   for (const [k, v] of Object.entries(MODEL_PRICING)) { if (model?.includes(k)) return v }
@@ -79,11 +86,10 @@ function calcCost(usage, model) {
   )
 }
 
-// Full port of scanClaudeData + serialize from main.ts ──────────────────────
 function scanClaudeData() {
   const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects')
-  const teamCosts = new Map()   // teamName → Map<key, entry>
-  const projects  = new Map()   // projDir  → ProjectMeta
+  const teamCosts = new Map()
+  const projects  = new Map()
 
   if (!fs.existsSync(PROJECTS_DIR)) return { teamCosts, projects }
 
@@ -225,25 +231,7 @@ function getScannedData() {
   }
 }
 
-function buildCostMapForTeams(teams, costMap) {
-  const teamCostMap = {}
-  for (const { teamName, team } of teams) {
-    if (!team.members) continue
-    let teamTotal = 0
-    for (const member of team.members) {
-      const cwd = member.cwd
-      if (!cwd) continue
-      const projKey = cwd.replace(/^\//, '').replace(/\//g, '-')
-      teamTotal += costMap[projKey] ?? 0
-    }
-    teamCostMap[teamName] = teamTotal
-  }
-  return teamCostMap
-}
-
-// ── Register core IPC handlers ──────────────────────────────────────────────
 function registerCoreHandlers(win) {
-  // Matches the exact handler names from electron/main.ts
   ipcMain.handle('get-initial-data', () => readTeamData())
   ipcMain.handle('get-claude-dir',   () => CLAUDE_DIR)
   ipcMain.handle('get-theme',        () => nativeTheme.shouldUseDarkColors ? 'dark' : 'light')
@@ -279,75 +267,67 @@ function registerCoreHandlers(win) {
   ipcMain.handle('show-confirm-dialog', (_e, opts) => {
     return dialog.showMessageBox(win, { type: 'question', buttons: ['Confirm', 'Cancel'], ...opts })
   })
+  ipcMain.handle('create-team', () => ({ ok: true }))
+  ipcMain.handle('export-session', () => ({ ok: true }))
   ipcMain.handle('get-notifications-settings', () => ({ enabled: false, taskComplete: false, teamCreate: false, costThreshold: null, budgets: {} }))
   ipcMain.handle('set-notifications-settings', () => ({ ok: true }))
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const sleep = ms => new Promise(r => setTimeout(r, ms))
+// ── Video recording helpers ──────────────────────────────────────────────────
 
-async function capture(win, filename) {
-  await sleep(100)
-  const image = await win.webContents.capturePage()
-  const outPath = path.join(SCREENSHOTS_DIR, filename)
-  fs.writeFileSync(outPath, image.toPNG())
-  console.log(`  ✓ ${filename}`)
+function buildOutputPath() {
+  const now = new Date()
+  const pad = n => String(n).padStart(2, '0')
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+             + `-${pad(now.getHours())}-${pad(now.getMinutes())}-${pad(now.getSeconds())}`
+  return path.join(RECORDINGS_DIR, `claude-lens-${stamp}.mp4`)
 }
 
-async function clickNavByText(win, text) {
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const btn = btns.find(b => b.textContent.trim().startsWith(${JSON.stringify(text)}));
-      if (btn) { btn.click(); return true; }
-      return false;
-    })()
-  `)
-}
+function startFfmpeg(outputPath, width, height) {
+  // Accept a stream of PNG images on stdin and encode to H.264 MP4.
+  // -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" ensures even dimensions required by libx264.
+  const ffmpeg = spawn('ffmpeg', [
+    '-y',
+    '-f', 'image2pipe',
+    '-framerate', String(FRAMERATE),
+    '-vcodec', 'png',
+    '-i', 'pipe:0',
+    '-vcodec', 'libx264',
+    '-preset', 'fast',
+    '-crf', '18',
+    '-pix_fmt', 'yuv420p',
+    '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+    outputPath,
+  ], { stdio: ['pipe', 'inherit', 'inherit'] })
 
-async function clickNavByTitle(win, title) {
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const btn = document.querySelector('button[title=${JSON.stringify(title)}]');
-      if (btn) { btn.click(); return true; }
-      return false;
-    })()
-  `)
-}
+  ffmpeg.on('error', err => {
+    if (err.code === 'ENOENT') {
+      console.error('\n✗ ffmpeg not found. Install it with: sudo apt install ffmpeg\n')
+    } else {
+      console.error('\n✗ ffmpeg error:', err.message)
+    }
+    app.quit()
+  })
 
-async function clickTabByText(win, text) {
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const btns = Array.from(document.querySelectorAll('button'));
-      const btn = btns.find(b => b.textContent.trim() === ${JSON.stringify(text)});
-      if (btn) { btn.click(); return true; }
-      return false;
-    })()
-  `)
-}
-
-async function openCommandPalette(win) {
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const event = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true });
-      document.dispatchEvent(event);
-    })()
-  `)
+  return ffmpeg
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
-  fs.mkdirSync(SCREENSHOTS_DIR, { recursive: true })
-  console.log(`\nClaude Lens Screenshot Tool`)
-  console.log(`Output: ${SCREENSHOTS_DIR}\n`)
+  fs.mkdirSync(RECORDINGS_DIR, { recursive: true })
 
-  // Register all IPC handlers
+  const outputPath = buildOutputPath()
+  console.log(`\nClaude Lens Screen Recorder`)
+  console.log(`Output: ${outputPath}`)
+  console.log(`Framerate: ${FRAMERATE} fps`)
+  console.log(`\nClose the window when done to finalise the video.\n`)
+
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
-    show: false,
     frame: false,
     autoHideMenuBar: true,
+    icon: path.join(ROOT, 'build/icon.png'),
     backgroundColor: '#09090b',
     webPreferences: {
       preload: path.join(DIST_ELECTRON, 'preload.js'),
@@ -356,7 +336,6 @@ app.whenReady().then(async () => {
     },
   })
 
-  // Override theme to dark for consistent screenshots
   nativeTheme.themeSource = 'dark'
 
   registerCoreHandlers(win)
@@ -369,10 +348,6 @@ app.whenReady().then(async () => {
   registerNotificationHandlers(ipcMain)
 
   await win.loadFile(path.join(DIST_DIR, 'index.html'))
-  win.show()
-
-  // Wait for app to fully load (data fetching, React render)
-  await sleep(5000)
 
   // Mumble all [data-sensitive] elements with deterministic fake-but-plausible text.
   // Same original string always maps to the same fake name so repeated references stay consistent.
@@ -476,188 +451,51 @@ app.whenReady().then(async () => {
     })()
   `)
 
-  console.log('Taking screenshots...\n')
+  const { width, height } = win.getBounds()
+  const ffmpeg = startFfmpeg(outputPath, width, height)
 
-  // ── 1. Card View (default: Teams + Cards) ──────────────────────────────────
-  await clickNavByText(win, 'Teams')
-  await sleep(800)
-  await clickNavByText(win, 'Cards')
-  await sleep(1200)
-  await capture(win, 'card-view.png')
+  let recording = true
+  let framesPending = 0
+  const MAX_PENDING = 3  // simple backpressure: don't queue more than N frames ahead
 
-  // ── 2. Graph View ──────────────────────────────────────────────────────────
-  await clickNavByText(win, 'Graph')
-  await sleep(1500)
-  await capture(win, 'graph-view.png')
-
-  // ── 3. Split View ──────────────────────────────────────────────────────────
-  await clickNavByText(win, 'Split')
-  await sleep(2000)
-  // Click the first team node in the ReactFlow graph to open the detail panel
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const teamNode = document.querySelector('.react-flow__node-team');
-      if (teamNode) { teamNode.click(); return true; }
-      return false;
-    })()
-  `)
-  await sleep(1000)
-  await capture(win, 'split-view.png')
-
-  // ── 4. Analytics Overview ──────────────────────────────────────────────────
-  await clickNavByText(win, 'Analytics')
-  await sleep(2500)  // let chart data load
-  await clickTabByText(win, 'Overview')
-  await sleep(1000)
-  await capture(win, 'analytics-overview.png')
-
-  // ── 5. Activity Heatmap ────────────────────────────────────────────────────
-  await clickTabByText(win, 'Heatmap')
-  await sleep(1200)
-  await capture(win, 'activity-heatmap.png')
-
-  // ── 6. Model Comparison ────────────────────────────────────────────────────
-  await clickTabByText(win, 'Models')
-  await sleep(1000)
-  await capture(win, 'analytics-models.png')
-
-  // ── 7. Cache tab ──────────────────────────────────────────────────────────
-  await clickTabByText(win, 'Cache')
-  await sleep(1500)
-  await capture(win, 'analytics-cache.png')
-
-  // ── 7b. Activity Feed tab ─────────────────────────────────────────────────
-  await clickTabByText(win, 'Activity Feed')
-  await sleep(1000)
-  await capture(win, 'analytics-activity-feed.png')
-
-  // ── 8. Conversations ───────────────────────────────────────────────────────
-  await clickNavByText(win, 'Conversations')
-  await sleep(2000)
-  // Click the first project row to expand it
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const btns = Array.from(document.querySelectorAll('button'));
-      // The first project row button has a ChevronRight icon
-      const projectBtn = btns.find(b => b.querySelector('svg') && b.className.includes('text-left'));
-      if (projectBtn) { projectBtn.click(); return 'clicked project'; }
-      return 'no project found';
-    })()
-  `)
-  await sleep(1000)
-  // Click the first session button (appears after expansion)
-  await win.webContents.executeJavaScript(`
-    (function() {
-      // After expansion, session rows appear indented. Find a button with font-mono text (session ID pattern)
-      const allBtns = Array.from(document.querySelectorAll('button'));
-      // Session buttons contain a span with class font-mono and text starting with "…"
-      const sessionBtn = allBtns.find(b => {
-        const mono = b.querySelector('.font-mono');
-        return mono && mono.textContent.startsWith('…');
-      });
-      if (sessionBtn) { sessionBtn.click(); return 'clicked: ' + sessionBtn.textContent.trim().slice(0,20); }
-      return 'no session btn found, total btns: ' + allBtns.length;
-    })()
-  `)
-  await sleep(3000) // wait for conversation to load
-  await capture(win, 'conversation-browser.png')
-
-  // ── 9. Search ─────────────────────────────────────────────────────────────
-  await clickNavByText(win, 'Search')
-  await sleep(800)
-  // Type a search query
-  await win.webContents.executeJavaScript(`
-    (function() {
-      const input = document.querySelector('input[type="search"], input[placeholder*="earch"], input[placeholder*="query"]');
-      if (input) {
-        input.focus();
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-        nativeInputValueSetter.call(input, 'claude');
-        input.dispatchEvent(new Event('input', { bubbles: true }));
+  const captureLoop = setInterval(async () => {
+    if (!recording || win.isDestroyed() || framesPending >= MAX_PENDING) return
+    framesPending++
+    try {
+      const image = await win.webContents.capturePage()
+      const buf = image.toPNG()
+      const ok = ffmpeg.stdin.write(buf)
+      if (!ok) {
+        // stdin buffer full — wait for drain before writing more
+        await new Promise(resolve => ffmpeg.stdin.once('drain', resolve))
       }
-    })()
-  `)
-  await sleep(1500)
-  await capture(win, 'search-view.png')
+    } catch {
+      // Window may be closing; ignore capture errors
+    } finally {
+      framesPending--
+    }
+  }, FRAME_INTERVAL)
 
-  // ── 10. Content View ──────────────────────────────────────────────────────
-  await clickNavByText(win, 'Content')
-  await sleep(1000)
-  await capture(win, 'content-view.png')
+  win.on('closed', async () => {
+    recording = false
+    clearInterval(captureLoop)
 
-  // ── 11. Projects View ─────────────────────────────────────────────────────
-  await clickNavByText(win, 'Projects')
-  await sleep(1500)
-  await capture(win, 'projects-view.png')
+    // Wait for any in-flight frames to finish, then close ffmpeg stdin
+    await new Promise(resolve => setTimeout(resolve, FRAME_INTERVAL * (MAX_PENDING + 1)))
+    ffmpeg.stdin.end()
 
-  // ── 12. System View – Processes tab ──────────────────────────────────────
-  await clickNavByTitle(win, 'System')
-  await sleep(1200)
-  await capture(win, 'system-view.png')
+    ffmpeg.on('close', code => {
+      if (code === 0) {
+        console.log(`\n✓ Recording saved to:\n  ${outputPath}\n`)
+      } else {
+        console.error(`\n✗ ffmpeg exited with code ${code}\n`)
+      }
+      app.quit()
+    })
+  })
 
-  // ── 12b. System View – Auth tab ───────────────────────────────────────────
-  await clickTabByText(win, 'Auth')
-  await sleep(1200)
-  await capture(win, 'system-auth.png')
-
-  // ── 13. Settings – General tab (default) ──────────────────────────────────
-  await clickNavByTitle(win, 'Settings')
-  await sleep(1000)
-  await capture(win, 'settings-general.png')
-
-  // ── 13b. Settings – Hooks tab ─────────────────────────────────────────────
-  await clickTabByText(win, 'Hooks')
-  await sleep(800)
-  await capture(win, 'settings-hooks.png')
-
-  // ── 13c. Settings – MCP Servers tab ───────────────────────────────────────
-  await clickTabByText(win, 'MCP Servers')
-  await sleep(800)
-  await capture(win, 'settings-mcp.png')
-
-  // ── 13d. Settings – Notifications tab ────────────────────────────────────
-  await clickTabByText(win, 'Notifications')
-  await sleep(800)
-  await capture(win, 'settings-notifications.png')
-
-  // ── 13e. Settings – Templates tab ─────────────────────────────────────────
-  await clickTabByText(win, 'Templates')
-  await sleep(800)
-  await capture(win, 'settings-templates.png')
-
-  // ── 13f. Settings – Profiles tab ──────────────────────────────────────────
-  await clickTabByText(win, 'Profiles')
-  await sleep(800)
-  await capture(win, 'settings-profiles.png')
-
-  // ── 14. Command Palette ───────────────────────────────────────────────────
-  // Go back to Teams first
-  await clickNavByText(win, 'Teams')
-  await sleep(800)
-  await openCommandPalette(win)
-  await sleep(800)
-  await capture(win, 'command-palette.png')
-
-  // ── 15. Graph View (light mode) ───────────────────────────────────────────
-  nativeTheme.themeSource = 'light'
-  await win.webContents.executeJavaScript(`
-    (function() {
-      // Dismiss palette if open
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    })()
-  `)
-  await clickNavByText(win, 'Graph')
-  await sleep(1500)
-  await capture(win, 'graph-view-light.png')
-
-  // Restore dark
-  nativeTheme.themeSource = 'dark'
-  await clickNavByText(win, 'Cards')
-  await sleep(1000)
-  await capture(win, 'card-view-dark.png')
-
-  console.log(`\nDone! ${fs.readdirSync(SCREENSHOTS_DIR).length} screenshots saved to:\n  ${SCREENSHOTS_DIR}\n`)
-  app.quit()
+  process.on('SIGINT', () => win.close())
+  process.on('SIGTERM', () => win.close())
 })
 
-app.on('window-all-closed', () => app.quit())
+app.on('window-all-closed', () => { /* handled by win.on('closed') */ })

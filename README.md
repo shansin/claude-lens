@@ -1,176 +1,146 @@
 # Claude Lens
 
-A desktop GUI for monitoring and managing Claude Code agent teams. Built with Electron, React, and TypeScript, Claude Lens gives you a real-time window into your `~/.claude` directory — teams, tasks, conversations, costs, and system health, all in one place.
+The control tower for Claude Code's multi-agent system. A native desktop app that turns your `~/.claude/` directory into a real-time observability dashboard — teams, costs, conversations, analytics, and system health in one window.
 
-![Card View](screenshots/card-view-dark.png)
+![Claude Lens](screenshots/card-view-dark.png)
+
+## The Problem
+
+Claude Code's agent teams are powerful, but once a swarm is running you're left with:
+
+- Terminal output scrolling past faster than you can read
+- Manually `cat`-ing JSON task files to check status
+- No cost visibility until the API bill arrives
+- No way to browse past conversations without parsing `.jsonl` files
+
+Claude Lens fixes all of that.
 
 ## Features
 
-### Team & Task Management
-- **Card View** — compact grid of all active teams with status badges, task counts, and cost summaries
-- **Graph View** — interactive node-graph showing agent relationships and team topology (powered by React Flow)
-- **Split View** — side-by-side team list + detail panel for focused task inspection
+### Team Monitoring
+
+Three layouts for watching your agent swarm in real time:
+
+**Card View** — A responsive grid with progress bars, agent counts, model badges, task lists, and live cost per team.
 
 ![Card View](screenshots/card-view.png)
+
+**Graph View** — Interactive node graph of your team topology powered by React Flow. Violet edges for team-agent links, animated pulses for in-progress tasks, dashed orange for blocking dependencies.
+
 ![Graph View](screenshots/graph-view.png)
+
+**Split View** — Graph on the left, detail panel on the right.
+
 ![Split View](screenshots/split-view.png)
-- Per-team actions: delete, archive (moves to `~/.claude/teams-archive/`), clear tasks, reveal in Finder/Files, copy team name
-- Real-time filesystem watcher (chokidar) pushes updates to the UI without manual refresh
 
-### Cost Tracking
-- Reads and parses all JSONL conversation files from `~/.claude/projects/`
-- Deduplicates messages by ID to avoid double-counting
-- Calculates exact USD cost per session using current Anthropic pricing for all Claude model families (Opus, Sonnet, Haiku — versions 3 through 4.6)
-- Aggregates costs per team, per project, and per session
+- Create teams from the UI — no terminal required
+- Per-team actions: delete, archive, clear tasks, reveal in Finder/Files, copy name
+- Real-time filesystem watcher pushes updates without manual refresh
 
-### Analytics Dashboard
-- **Usage Overview** — 30-day stacked bar chart showing daily input, output, and cache token counts, along with daily cost
-- **Activity Heatmap** — GitHub-style 365-day contribution calendar of sessions over time
-- **Model Comparison** — side-by-side model comparison chart breaking down cost and usage across models
-- **Activity Feed** — reverse-chronological log of all assistant turns showing timestamps, projects, and message previews
+### Projects
+
+Every Claude Code project on your machine as a card — session count, total spend, models used, linked teams. Sort by recency, cost, or tokens.
+
+![Projects](screenshots/projects-view.png)
+
+### Analytics
+
+Five tabs of usage insight, lazy-loaded and auto-refreshing every 30s (paused when the window is hidden):
+
+**Overview** — Stacked bar chart of daily tokens and cost (7d / 30d / 90d). Top Projects by Cost ranking.
 
 ![Analytics Overview](screenshots/analytics-overview.png)
-![Activity Heatmap](screenshots/activity-heatmap.png)
-![Model Comparison](screenshots/analytics-models.png)
+
+**Heatmap** — GitHub-style 365-day activity calendar.
+
+![Heatmap](screenshots/activity-heatmap.png)
+
+**Models** — Per-model breakdown of messages, tokens, cache utilization, and cost.
+
+![Models](screenshots/analytics-models.png)
+
+**Cache** — Hit rate, total savings in USD, and daily cache read vs. write chart.
+
+![Cache](screenshots/analytics-cache.png)
+
+**Activity Feed** — Reverse-chronological log of all assistant turns with timestamps, projects, and message previews.
+
 ![Activity Feed](screenshots/analytics-activity-feed.png)
 
-### Projects View
-- Scans `~/.claude/projects/` and surfaces all Claude Code projects with session history
-- Per-project metrics: session count, total spend, models used, and linked teams
-- Quick-open working directory directly from the app
-
-![Projects View](screenshots/projects-view.png)
-
 ### Conversation Browser
-- Browse and read full conversation histories from any project session with a collapsible project tree
-- Renders conversations with distinct styling for user/assistant messages, tool use blocks, and thinking blocks
-- Inline token counts for every message
 
-![Conversation Browser](screenshots/conversation-browser.png)
+Collapsible project tree with full conversation rendering — user/assistant bubbles, expandable tool-use blocks, inline token counts, and per-session cost in the sidebar.
+
+![Conversations](screenshots/conversation-browser.png)
+
+- **Ctrl+F** search with match highlighting across the entire thread
+- **Export as Markdown** — one-click `.md` download of any session
 
 ### Full-Text Search
-- Debounced full-text search across every JSONL session file on disk
-- Results include highlighted match snippets and context
-- Click any result to jump directly directly into the Conversation View for that session
 
-![Search View](screenshots/search-view.png)
+Debounced search across every JSONL session file on disk. Highlighted snippets, click-to-jump.
 
-### Command Palette
-- Press `Ctrl+K` / `Cmd+K` to open the command palette for instant, fuzzy-matched navigation to any view, team, or project
+![Search](screenshots/search-view.png)
+
+### Content
+
+Browse Claude Code's internal state — memory files, active plans, todo lists, and project disk usage with one-click cleanup.
+
+![Content](screenshots/content-view.png)
+
+### Settings GUI
+
+A full interface over `~/.claude/settings.json` — no text editor required.
+
+**General** — Effort level, permission mode, environment variables, status line command.
+
+![Settings](screenshots/settings-general.png)
+
+**Hooks** — Manage Pre/Post tool-use hooks with an inline test runner. Click play, see stdout/stderr and exit codes live.
+
+![Hooks](screenshots/settings-hooks.png)
+
+**MCP Servers** — Add and configure servers with a clean form.
+
+![MCP](screenshots/settings-mcp.png)
+
+**Notifications & Budget** — Desktop notifications for task completions and team creation. Budget limits with soft warnings and hard alerts.
+
+![Notifications](screenshots/settings-notifications.png)
+
+**Profiles & Templates** — Snapshot settings or save team topologies as reusable templates.
+
+### System
+
+Live process table of all `claude` sessions with CPU%, memory%, elapsed time, and **CPU sparklines** (rolling 60s history). One-click kill for hung sessions.
+
+![System](screenshots/system-view.png)
+
+Auth monitoring with token expiry badges. Telemetry event browser.
+
+![Auth](screenshots/system-auth.png)
+
+### Command Palette & Keyboard Shortcuts
+
+`Ctrl+K` / `Cmd+K` opens fuzzy-matched navigation to any view, team, or project.
 
 ![Command Palette](screenshots/command-palette.png)
 
-### Content Management
-- **Plans** — View all your markdown plans from `~/.claude/plans/`
-- **Todos** — Track per-agent todo lists from `~/.claude/todos/`
-- **Memory** — Browse memory files across all projects and your working directory's `CLAUDE.md`
-- **Cleanup** — List projects sorted by disk usage, with one-click cleanup of old session files
-- **Export** — One-click CSV export of all usage data (date, project, session, team, model, tokens, cost)
-
-![Content View](screenshots/content-view.png)
-
-### System Monitoring
-- **Processes** — live table of running Claude-related processes, showing CPU%, memory%, and elapsed time. Includes a one-click kill button for hung sessions
-- **Auth** — reads credentials, surfaces your tier, displays OAuth scopes, and tracks token expiry with color-coded badges
-- **Telemetry** — displays recent telemetry events directly from `~/.claude/telemetry/`
-
-![System Processes](screenshots/system-view.png)
-![System Auth](screenshots/system-auth.png)
-
-### Settings & Configuration
-- **General** — fully GUI-driven settings for Effort Level, Default Permission Mode, Environment Variables, and Status Line Command
-- **Hooks (with Inline Test Runner)** — manage `PreToolUse`, `PostToolUse`, `Notification`, and `Stop` hooks. Includes an inline test runner to execute and debug your hook commands live with stdout/exit codes
-- **MCP Servers** — graphical interface to add, configure, and manage your MCP Servers
-- **Profiles** — snapshot and restore different Claude `settings.json` profiles
-- **Notifications & Budget Limits** — desktop notifications for task completions, team creation, and cost thresholds. Also includes Budget Limits to prevent runaway agent costs
-- **Templates** — save existing team topologies as templates and load them instantly for new projects
-
-![Settings General](screenshots/settings-general.png)
-![Settings Hooks](screenshots/settings-hooks.png)
-![Settings MCP](screenshots/settings-mcp.png)
-![Settings Notifications](screenshots/settings-notifications.png)
-
-## Tech Stack
-
-| Layer | Technology |
+| Shortcut | Action |
 |---|---|
-| Runtime | Electron 40 |
-| Frontend | React 19, TypeScript, Tailwind CSS v4 |
-| Build | Vite 7, electron-builder |
-| Charts | Recharts 3 |
-| Graph Visualization | @xyflow/react (React Flow) v12 |
-| File Watching | chokidar 5 |
-| Icons | lucide-react |
+| `1` – `8` | Jump to view |
+| `r` | Refresh data |
+| `Ctrl+K` / `Cmd+K` | Command palette |
+| `Ctrl+F` | Search current conversation |
+| `Escape` | Close palette / modal |
 
-## Prerequisites
+## How It Works
 
-- Node.js 18+
-- npm 9+ (or compatible package manager)
+Claude Lens is a **read-mostly companion**. It never modifies your conversation history or interferes with running agents.
 
-## Installation
+A Node.js main process watches the filesystem with `chokidar`, handles JSONL scanning and deduplication, and pushes updates via IPC to the React frontend. Write operations (team creation, settings changes, process kills) are only triggered by explicit user action.
 
-```bash
-gh repo clone shansin/claude-lens
-cd claude-lens
-npm install
-```
-
-## Usage
-
-### Development
-
-```bash
-npm run dev
-```
-
-Starts Vite dev server and Electron concurrently. DevTools open automatically in detached mode.
-
-### Production Build
-
-```bash
-npm run build
-```
-
-Compiles TypeScript (electron), bundles the renderer with Vite, then packages with electron-builder. Output goes to `release/`.
-
-| Platform | Format |
-|---|---|
-| macOS | `.dmg` |
-| Windows | NSIS installer |
-| Linux | `AppImage` |
-
-## Project Structure
-
-```
-claude-lens/
-├── electron/
-│   ├── main.ts          # Electron main process, IPC handlers, file watcher, cost scanner
-│   ├── preload.ts       # Context bridge (renderer ↔ main)
-│   └── modules/
-│       ├── analytics.ts    # Usage/activity analytics IPC
-│       ├── content.ts      # Memory/content file handlers
-│       ├── metrics.ts      # Agent metrics aggregation
-│       ├── notifications.ts # Desktop notification logic
-│       ├── settings.ts     # Claude settings read/write
-│       ├── system.ts       # Process monitor, auth, telemetry
-│       └── viewer.ts       # Conversation JSONL reader
-├── src/
-│   ├── App.tsx           # Root layout, view routing, command palette
-│   ├── components/
-│   │   ├── views/        # Top-level views (Cards, Graph, Split, Analytics, …)
-│   │   └── *.tsx         # Shared components (AgentPill, CostPanel, UsageChart, …)
-│   ├── hooks/
-│   │   └── useTeamData.ts # Main data hook — wires IPC events to React state
-│   └── types.ts          # Shared TypeScript types
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-└── package.json
-```
-
-## Data Sources
-
-Claude Lens reads exclusively from `~/.claude/` and never modifies your conversation history.
+### Data Sources
 
 | Path | What it reads |
 |---|---|
@@ -180,14 +150,72 @@ Claude Lens reads exclusively from `~/.claude/` and never modifies your conversa
 | `~/.claude/settings.json` | Claude Code settings |
 | `~/.claude/settings.local.json` | Local settings overrides |
 
-Write operations are limited to: deleting/archiving teams, clearing tasks, updating settings, and managing hooks/MCP config — all triggered explicitly by the user.
+## Tech Stack
 
-## Keyboard Shortcuts
-
-| Shortcut | Action |
+| Layer | Technology |
 |---|---|
-| `Ctrl+K` / `Cmd+K` | Open command palette |
-| `Escape` | Close command palette / modal |
+| Runtime | Electron 40 |
+| Frontend | React 19, TypeScript, Tailwind CSS v4 |
+| Build | Vite 7, electron-builder |
+| Charts | Recharts 3 |
+| Graph | @xyflow/react (React Flow) v12 |
+| File Watching | chokidar 5 |
+| Icons | lucide-react |
+
+## Quick Start
+
+```bash
+gh repo clone shansin/claude-lens
+cd claude-lens
+npm install
+npm run dev
+```
+
+If you've used Claude Code before, the dashboard is live immediately with your data.
+
+### Production Build
+
+```bash
+npm run build
+```
+
+Output goes to `release/`.
+
+| Platform | Format |
+|---|---|
+| macOS | `.dmg` |
+| Windows | NSIS installer |
+| Linux | `AppImage` |
+
+### Screenshots & Recording
+
+```bash
+npm run screenshots    # Captures PNGs of each view into screenshots/
+npm run record         # Records an MP4 session (requires ffmpeg)
+```
+
+## Project Structure
+
+```
+claude-lens/
+├── electron/
+│   ├── main.ts            # Main process, IPC handlers, file watcher, cost scanner
+│   ├── preload.ts         # Context bridge (renderer ↔ main)
+│   └── modules/           # analytics, content, metrics, notifications, settings, system, viewer
+├── src/
+│   ├── App.tsx            # Root layout, view routing, command palette, CreateTeam modal
+│   ├── components/views/  # Top-level views
+│   ├── components/*.tsx   # Shared components
+│   ├── hooks/useTeamData.ts # Main data hook
+│   └── types.ts           # Shared TypeScript types
+├── scripts/               # Screenshot & recording automation
+└── package.json
+```
+
+## Prerequisites
+
+- Node.js 18+
+- npm 9+
 
 ## License
 
