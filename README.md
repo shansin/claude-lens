@@ -17,7 +17,13 @@ Claude Lens fixes all of that.
 
 ## Features
 
-### Team Monitoring
+### Projects
+
+Every Claude Code project on your machine as a card — session count, total spend, models used, linked teams. Sort by recency, cost, or tokens.
+
+![Projects](screenshots/projects-view.png)
+
+### Agent Teams
 
 Three layouts for watching your agent swarm in real time:
 
@@ -36,12 +42,6 @@ Three layouts for watching your agent swarm in real time:
 - Create teams from the UI — no terminal required
 - Per-team actions: delete, archive, clear tasks, reveal in Finder/Files, copy name
 - Real-time filesystem watcher pushes updates without manual refresh
-
-### Projects
-
-Every Claude Code project on your machine as a card — session count, total spend, models used, linked teams. Sort by recency, cost, or tokens.
-
-![Projects](screenshots/projects-view.png)
 
 ### Analytics
 
@@ -67,26 +67,25 @@ Five tabs of usage insight, lazy-loaded and auto-refreshing every 30s (paused wh
 
 ![Activity Feed](screenshots/analytics-activity-feed.png)
 
+### Content
+
+Browse Claude Code's internal state — memory files, active plans, todo lists, and project disk usage with one-click cleanup.
+
+![Content](screenshots/content-view.png)
+
 ### Conversation Browser
 
 Collapsible project tree with full conversation rendering — user/assistant bubbles, expandable tool-use blocks, inline token counts, and per-session cost in the sidebar.
 
 ![Conversations](screenshots/conversation-browser.png)
 
-- **Ctrl+F** search with match highlighting across the entire thread
-- **Export as Markdown** — one-click `.md` download of any session
-
-### Full-Text Search
-
-Debounced search across every JSONL session file on disk. Highlighted snippets, click-to-jump.
+- **Browse / Search toggle** — switch between project tree and full-text search without leaving the view
+- Debounced search across every JSONL session file on disk. Highlighted snippets, click-to-jump.
 
 ![Search](screenshots/search-view.png)
 
-### Content
-
-Browse Claude Code's internal state — memory files, active plans, todo lists, and project disk usage with one-click cleanup.
-
-![Content](screenshots/content-view.png)
+- **Ctrl+F** search with match highlighting across the entire thread
+- **Export as Markdown** — one-click `.md` download of any session
 
 ### Settings GUI
 
@@ -128,7 +127,13 @@ Auth monitoring with token expiry badges. Telemetry event browser.
 
 | Shortcut | Action |
 |---|---|
-| `1` – `8` | Jump to view |
+| `1` | Projects |
+| `2` | Agent Teams |
+| `3` | Analytics |
+| `4` | Content |
+| `5` | Conversations |
+| `6` | System |
+| `7` | Settings |
 | `r` | Refresh data |
 | `Ctrl+K` / `Cmd+K` | Command palette |
 | `Ctrl+F` | Search current conversation |
@@ -183,9 +188,9 @@ Output goes to `release/`.
 
 | Platform | Format |
 |---|---|
-| macOS | `.dmg` |
+| macOS | `.dmg` (universal) |
 | Windows | NSIS installer |
-| Linux | `AppImage` |
+| Linux | `AppImage`, `.deb` |
 
 ### Screenshots & Recording
 

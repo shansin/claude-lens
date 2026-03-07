@@ -225,22 +225,6 @@ function getScannedData() {
   }
 }
 
-function buildCostMapForTeams(teams, costMap) {
-  const teamCostMap = {}
-  for (const { teamName, team } of teams) {
-    if (!team.members) continue
-    let teamTotal = 0
-    for (const member of team.members) {
-      const cwd = member.cwd
-      if (!cwd) continue
-      const projKey = cwd.replace(/^\//, '').replace(/\//g, '-')
-      teamTotal += costMap[projKey] ?? 0
-    }
-    teamCostMap[teamName] = teamTotal
-  }
-  return teamCostMap
-}
-
 // ── Register core IPC handlers ──────────────────────────────────────────────
 function registerCoreHandlers(win) {
   // Matches the exact handler names from electron/main.ts
@@ -343,7 +327,7 @@ app.whenReady().then(async () => {
 
   // Register all IPC handlers
   const win = new BrowserWindow({
-    width: 1440,
+    width: 1728,
     height: 900,
     show: false,
     frame: false,
@@ -478,19 +462,24 @@ app.whenReady().then(async () => {
 
   console.log('Taking screenshots...\n')
 
-  // ── 1. Card View (default: Teams + Cards) ──────────────────────────────────
-  await clickNavByText(win, 'Teams')
+  // ── 1. Projects View ──────────────────────────────────────────────────────
+  await clickNavByText(win, 'Projects')
+  await sleep(1500)
+  await capture(win, 'projects-view.png')
+
+  // ── 2. Card View (Agent Teams + Cards) ────────────────────────────────────
+  await clickNavByText(win, 'Agent Teams')
   await sleep(800)
   await clickNavByText(win, 'Cards')
   await sleep(1200)
   await capture(win, 'card-view.png')
 
-  // ── 2. Graph View ──────────────────────────────────────────────────────────
+  // ── 3. Graph View ──────────────────────────────────────────────────────────
   await clickNavByText(win, 'Graph')
   await sleep(1500)
   await capture(win, 'graph-view.png')
 
-  // ── 3. Split View ──────────────────────────────────────────────────────────
+  // ── 4. Split View ──────────────────────────────────────────────────────────
   await clickNavByText(win, 'Split')
   await sleep(2000)
   // Click the first team node in the ReactFlow graph to open the detail panel
@@ -504,34 +493,39 @@ app.whenReady().then(async () => {
   await sleep(1000)
   await capture(win, 'split-view.png')
 
-  // ── 4. Analytics Overview ──────────────────────────────────────────────────
+  // ── 5. Analytics Overview ──────────────────────────────────────────────────
   await clickNavByText(win, 'Analytics')
   await sleep(2500)  // let chart data load
   await clickTabByText(win, 'Overview')
   await sleep(1000)
   await capture(win, 'analytics-overview.png')
 
-  // ── 5. Activity Heatmap ────────────────────────────────────────────────────
+  // ── 6. Activity Heatmap ────────────────────────────────────────────────────
   await clickTabByText(win, 'Heatmap')
   await sleep(1200)
   await capture(win, 'activity-heatmap.png')
 
-  // ── 6. Model Comparison ────────────────────────────────────────────────────
+  // ── 7. Model Comparison ────────────────────────────────────────────────────
   await clickTabByText(win, 'Models')
   await sleep(1000)
   await capture(win, 'analytics-models.png')
 
-  // ── 7. Cache tab ──────────────────────────────────────────────────────────
+  // ── 8. Cache tab ──────────────────────────────────────────────────────────
   await clickTabByText(win, 'Cache')
   await sleep(1500)
   await capture(win, 'analytics-cache.png')
 
-  // ── 7b. Activity Feed tab ─────────────────────────────────────────────────
+  // ── 9. Activity Feed tab ──────────────────────────────────────────────────
   await clickTabByText(win, 'Activity Feed')
   await sleep(1000)
   await capture(win, 'analytics-activity-feed.png')
 
-  // ── 8. Conversations ───────────────────────────────────────────────────────
+  // ── 10. Content View ──────────────────────────────────────────────────────
+  await clickNavByText(win, 'Content')
+  await sleep(1000)
+  await capture(win, 'content-view.png')
+
+  // ── 11. Conversations – Browse mode ───────────────────────────────────────
   await clickNavByText(win, 'Conversations')
   await sleep(2000)
   // Click the first project row to expand it
@@ -562,83 +556,83 @@ app.whenReady().then(async () => {
   await sleep(3000) // wait for conversation to load
   await capture(win, 'conversation-browser.png')
 
-  // ── 9. Search ─────────────────────────────────────────────────────────────
-  await clickNavByText(win, 'Search')
-  await sleep(800)
-  // Type a search query
+  // ── 12. Conversations – Search mode ──────────────────────────────────────
+  // Click the "Search" tab in the sidebar toggle
   await win.webContents.executeJavaScript(`
     (function() {
-      const input = document.querySelector('input[type="search"], input[placeholder*="earch"], input[placeholder*="query"]');
+      const btns = Array.from(document.querySelectorAll('button'));
+      const searchBtn = btns.find(b => b.textContent.trim() === 'Search');
+      if (searchBtn) { searchBtn.click(); return true; }
+      return false;
+    })()
+  `)
+  await sleep(500)
+  // Type a search query into the search input
+  await win.webContents.executeJavaScript(`
+    (function() {
+      const input = document.querySelector('input[placeholder="Search conversations…"]');
       if (input) {
         input.focus();
         const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
         nativeInputValueSetter.call(input, 'claude');
         input.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
       }
+      return false;
     })()
   `)
-  await sleep(1500)
+  await sleep(2000) // wait for debounced search + results
   await capture(win, 'search-view.png')
 
-  // ── 10. Content View ──────────────────────────────────────────────────────
-  await clickNavByText(win, 'Content')
-  await sleep(1000)
-  await capture(win, 'content-view.png')
-
-  // ── 11. Projects View ─────────────────────────────────────────────────────
-  await clickNavByText(win, 'Projects')
-  await sleep(1500)
-  await capture(win, 'projects-view.png')
-
-  // ── 12. System View – Processes tab ──────────────────────────────────────
+  // ── 13. System View – Processes tab ──────────────────────────────────────
   await clickNavByTitle(win, 'System')
   await sleep(1200)
   await capture(win, 'system-view.png')
 
-  // ── 12b. System View – Auth tab ───────────────────────────────────────────
+  // ── 14. System View – Auth tab ───────────────────────────────────────────
   await clickTabByText(win, 'Auth')
   await sleep(1200)
   await capture(win, 'system-auth.png')
 
-  // ── 13. Settings – General tab (default) ──────────────────────────────────
+  // ── 15. Settings – General tab (default) ──────────────────────────────────
   await clickNavByTitle(win, 'Settings')
   await sleep(1000)
   await capture(win, 'settings-general.png')
 
-  // ── 13b. Settings – Hooks tab ─────────────────────────────────────────────
+  // ── 16. Settings – Hooks tab ─────────────────────────────────────────────
   await clickTabByText(win, 'Hooks')
   await sleep(800)
   await capture(win, 'settings-hooks.png')
 
-  // ── 13c. Settings – MCP Servers tab ───────────────────────────────────────
+  // ── 17. Settings – MCP Servers tab ───────────────────────────────────────
   await clickTabByText(win, 'MCP Servers')
   await sleep(800)
   await capture(win, 'settings-mcp.png')
 
-  // ── 13d. Settings – Notifications tab ────────────────────────────────────
+  // ── 18. Settings – Notifications tab ─────────────────────────────────────
   await clickTabByText(win, 'Notifications')
   await sleep(800)
   await capture(win, 'settings-notifications.png')
 
-  // ── 13e. Settings – Templates tab ─────────────────────────────────────────
+  // ── 19. Settings – Templates tab ──────────────────────────────────────────
   await clickTabByText(win, 'Templates')
   await sleep(800)
   await capture(win, 'settings-templates.png')
 
-  // ── 13f. Settings – Profiles tab ──────────────────────────────────────────
+  // ── 20. Settings – Profiles tab ───────────────────────────────────────────
   await clickTabByText(win, 'Profiles')
   await sleep(800)
   await capture(win, 'settings-profiles.png')
 
-  // ── 14. Command Palette ───────────────────────────────────────────────────
-  // Go back to Teams first
-  await clickNavByText(win, 'Teams')
+  // ── 21. Command Palette ───────────────────────────────────────────────────
+  // Go back to Agent Teams first
+  await clickNavByText(win, 'Agent Teams')
   await sleep(800)
   await openCommandPalette(win)
   await sleep(800)
   await capture(win, 'command-palette.png')
 
-  // ── 15. Graph View (light mode) ───────────────────────────────────────────
+  // ── 22. Graph View (light mode) ───────────────────────────────────────────
   nativeTheme.themeSource = 'light'
   await win.webContents.executeJavaScript(`
     (function() {
@@ -650,7 +644,7 @@ app.whenReady().then(async () => {
   await sleep(1500)
   await capture(win, 'graph-view-light.png')
 
-  // Restore dark
+  // Restore dark + card view hero shot
   nativeTheme.themeSource = 'dark'
   await clickNavByText(win, 'Cards')
   await sleep(1000)
