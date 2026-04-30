@@ -607,6 +607,16 @@ app.whenReady().then(async () => {
   // ── 17. Settings – MCP Servers tab ───────────────────────────────────────
   await clickTabByText(win, 'MCP Servers')
   await sleep(800)
+  // Open the Add Server form
+  await win.webContents.executeJavaScript(`
+    (function() {
+      const btns = Array.from(document.querySelectorAll('button'));
+      const addBtn = btns.find(b => b.textContent.trim().toLowerCase().includes('add'));
+      if (addBtn) { addBtn.click(); return true; }
+      return false;
+    })()
+  `)
+  await sleep(600)
   await capture(win, 'settings-mcp.png')
 
   // ── 18. Settings – Notifications tab ─────────────────────────────────────

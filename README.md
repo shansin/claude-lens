@@ -109,6 +109,8 @@ A full interface over `~/.claude/settings.json` — no text editor required.
 
 **Profiles & Templates** — Snapshot settings or save team topologies as reusable templates.
 
+![Profiles & Templates](screenshots/settings-profiles.png)
+
 ### System
 
 Live process table of all `claude` sessions with CPU%, memory%, elapsed time, and **CPU sparklines** (rolling 60s history). One-click kill for hung sessions.
